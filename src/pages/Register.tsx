@@ -35,10 +35,10 @@ export default function Register() {
                         <Shield className="h-7 w-7" />
                     </div>
                     <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-foreground">
-                        Create an account
+                        Creează un cont
                     </h2>
                     <p className="mt-2 text-center text-sm text-muted-foreground">
-                        Join the RefConnect community
+                        Alătură-te comunității RefConnect
                     </p>
                 </div>
 
@@ -46,7 +46,7 @@ export default function Register() {
                     <div className="space-y-4 rounded-md shadow-sm">
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Full Name
+                                Nume complet
                             </label>
                             <input
                                 id="name"
@@ -62,7 +62,7 @@ export default function Register() {
 
                         <div>
                             <label htmlFor="email-address" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Email address
+                                Adresă de email
                             </label>
                             <input
                                 id="email-address"
@@ -71,7 +71,7 @@ export default function Register() {
                                 autoComplete="email"
                                 required
                                 className="relative block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm transition-colors"
-                                placeholder="referee@example.com"
+                                placeholder="arbitru@exemplu.com"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -79,7 +79,7 @@ export default function Register() {
 
                         <div>
                             <label htmlFor="role" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Account Type
+                                Tip cont
                             </label>
                             <select
                                 id="role"
@@ -88,14 +88,14 @@ export default function Register() {
                                 value={formData.role}
                                 onChange={handleChange}
                             >
-                                <option value="referee">Referee</option>
-                                <option value="visitor">Visitor</option>
+                                <option value="referee">Arbitru</option>
+                                <option value="visitor">Vizitator</option>
                             </select>
                         </div>
 
                         <div>
                             <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Password
+                                Parolă
                             </label>
                             <input
                                 id="password"
@@ -110,7 +110,7 @@ export default function Register() {
                         </div>
                         <div>
                             <label htmlFor="confirmPassword" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Confirm Password
+                                Confirmă parola
                             </label>
                             <input
                                 id="confirmPassword"
@@ -131,14 +131,14 @@ export default function Register() {
                             disabled={isLoading}
                             className="group relative flex w-full justify-center rounded-md bg-foreground px-3 py-2 text-sm font-semibold text-background hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            {isLoading ? 'Creating account...' : 'Sign up'}
+                            {isLoading ? 'Se creează contul...' : 'Înregistrează-te'}
                         </button>
                     </div>
 
                     <div className="text-center text-sm">
-                        <span className="text-muted-foreground">Already have an account? </span>
+                        <span className="text-muted-foreground">Ai deja un cont? </span>
                         <Link to="/login" className="font-medium text-primary hover:text-primary/80">
-                            Sign in
+                            Conectează-te
                         </Link>
                     </div>
                 </form>

@@ -7,9 +7,11 @@ export default function SearchUsers() {
 
     // Mock search results
     const allUsers = [
-        { id: 1, name: 'Alice Smith', role: 'referee', bio: 'FIFA Assistant Referee' },
-        { id: 2, name: 'Bob Johnson', role: 'referee', bio: 'Regional Referee' },
-        { id: 3, name: 'Charlie Brown', role: 'visitor', bio: 'Just watching' },
+        { id: 1, name: 'Danciu Valentin', role: 'referee', bio: 'FIFA Assistant Referee' },
+        { id: 2, name: 'Coltescu Sebastian', role: 'referee', bio: 'Regional Referee' },
+        { id: 3, name: 'Neacsu Ionut Traian', role: 'referee', bio: 'Just watching' },
+        { id: 4, name: 'Bogdan Popescu', role: 'referee', bio: 'FIFA Assistant Referee' },
+        { id: 5, name: 'Andrei Luca', role: 'visitor', bio: 'Local Mini-League Referee' },
     ];
 
     const filteredUsers = allUsers.filter(u =>

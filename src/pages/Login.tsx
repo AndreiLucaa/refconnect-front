@@ -31,10 +31,10 @@ export default function Login() {
                         <Shield className="h-7 w-7" />
                     </div>
                     <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-foreground">
-                        Welcome back
+                        Bine ai revenit
                     </h2>
                     <p className="mt-2 text-center text-sm text-muted-foreground">
-                        Sign in to your RefConnect account
+                        Conectează-te în contul tău RefConnect
                     </p>
                 </div>
 
@@ -42,7 +42,7 @@ export default function Login() {
                     <div className="space-y-4 rounded-md shadow-sm">
                         <div>
                             <label htmlFor="email-address" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Email address
+                                Adresă de email
                             </label>
                             <input
                                 id="email-address"
@@ -51,14 +51,14 @@ export default function Login() {
                                 autoComplete="email"
                                 required
                                 className="relative block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm transition-colors"
-                                placeholder="referee@example.com"
+                                placeholder="arbitru@exemplu.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <div>
                             <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
-                                Password
+                                Parolă
                             </label>
                             <input
                                 id="password"
@@ -83,13 +83,13 @@ export default function Login() {
                                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                             />
                             <label htmlFor="remember-me" className="ml-2 block text-sm text-muted-foreground">
-                                Remember me
+                                Ține-mă minte
                             </label>
                         </div>
 
                         <div className="text-sm">
                             <a href="#" className="font-medium text-primary hover:text-primary/80">
-                                Forgot your password?
+                                Ai uitat parola?
                             </a>
                         </div>
                     </div>
@@ -100,14 +100,14 @@ export default function Login() {
                             disabled={isLoading}
                             className="group relative flex w-full justify-center rounded-md bg-foreground px-3 py-2 text-sm font-semibold text-background hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            {isLoading ? 'Signing in...' : 'Sign in'}
+                            {isLoading ? 'Se conectează...' : 'Conectare'}
                         </button>
                     </div>
 
                     <div className="text-center text-sm">
-                        <span className="text-muted-foreground">Don't have an account? </span>
+                        <span className="text-muted-foreground">Nu ai un cont? </span>
                         <Link to="/register" className="font-medium text-primary hover:text-primary/80">
-                            Sign up
+                            Înregistrează-te
                         </Link>
                     </div>
                 </form>

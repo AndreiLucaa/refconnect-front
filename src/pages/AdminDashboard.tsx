@@ -11,12 +11,12 @@ export default function AdminDashboard() {
     // Mock Data - moved to top level
     const [users, setUsers] = useState([
         { id: 1, name: 'Bad User', role: 'visitor', reports: 5 },
-        { id: 2, name: 'John Doe', role: 'referee', reports: 0 },
+        { id: 2, name: 'Neacsu Ionut Traian', role: 'referee', reports: 0 },
     ]);
 
     const [posts, setPosts] = useState([
         { id: 1, author: 'Bad User', content: 'Inappropriate content here...', reports: 3 },
-        { id: 2, author: 'John Doe', content: 'Great game today!', reports: 0 },
+        { id: 2, author: 'Neacsu Ionut Traian', content: 'Unii cum vor altii cum pot! ', reports: 0 },
     ]);
 
     const [groups, setGroups] = useState([

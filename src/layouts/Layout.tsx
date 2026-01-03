@@ -19,12 +19,13 @@ export const Layout = () => {
                 </Link>
 
                 <nav className="flex items-center gap-6">
-                    <Link to="/" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/') ? "text-primary" : "text-muted-foreground")}>Home</Link>
-                    <Link to="/search" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/search') ? "text-primary" : "text-muted-foreground")}>Search</Link>
+                    <Link to="/" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/') ? "text-primary" : "text-muted-foreground")}>Acasă</Link>
+                    <Link to="/search" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/search') ? "text-primary" : "text-muted-foreground")}>Caută</Link>
                     {user && (
                         <>
-                            <Link to="/groups" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>Groups</Link>
-                            <Link to="/matches" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/matches') ? "text-primary" : "text-muted-foreground")}>Matches</Link>
+                            <Link to="/matches" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/matches') ? "text-primary" : "text-muted-foreground")}>Meciuri</Link>
+                            <Link to="/delegations" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/delegations') ? "text-primary" : "text-muted-foreground")}>Delegări</Link>
+                            <Link to="/groups" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>Grupuri</Link>
                         </>
                     )}
                     {user?.role === 'admin' && (
@@ -42,7 +43,7 @@ export const Layout = () => {
                         </Link>
                     ) : (
                         <Link to="/login" className="text-sm font-medium px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
-                            Login
+                            Conectează-te
                         </Link>
                     )}
                 </div>
@@ -57,27 +58,27 @@ export const Layout = () => {
             <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border flex justify-around items-center p-3 z-50 safe-area-bottom">
                 <Link to="/" className={cn("flex flex-col items-center gap-1", isActive('/') ? "text-primary" : "text-muted-foreground")}>
                     <Home className="h-6 w-6" />
-                    <span className="text-[10px]">Home</span>
+                    <span className="text-[10px]">Acasă</span>
                 </Link>
                 <Link to="/search" className={cn("flex flex-col items-center gap-1", isActive('/search') ? "text-primary" : "text-muted-foreground")}>
                     <Search className="h-6 w-6" />
-                    <span className="text-[10px]">Search</span>
+                    <span className="text-[10px]">Caută</span>
                 </Link>
                 {user ? (
                     <>
                         <Link to="/groups" className={cn("flex flex-col items-center gap-1", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>
                             <Users className="h-6 w-6" />
-                            <span className="text-[10px]">Groups</span>
+                            <span className="text-[10px]">Grupuri</span>
                         </Link>
                         <Link to="/profile" className={cn("flex flex-col items-center gap-1", isActive('/profile') ? "text-primary" : "text-muted-foreground")}>
                             <User className="h-6 w-6" />
-                            <span className="text-[10px]">Profile</span>
+                            <span className="text-[10px]">Profil</span>
                         </Link>
                     </>
                 ) : (
                     <Link to="/login" className={cn("flex flex-col items-center gap-1", isActive('/login') ? "text-primary" : "text-muted-foreground")}>
                         <User className="h-6 w-6" />
-                        <span className="text-[10px]">Login</span>
+                        <span className="text-[10px]">Conectează-te</span>
                     </Link>
                 )}
             </nav>
