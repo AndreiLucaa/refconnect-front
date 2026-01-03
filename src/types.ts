@@ -170,6 +170,7 @@ export interface CommentDto {
 export interface CreateCommentDto {
   postId: string;
   content: string;
+  userId: string;
   parentCommentId?: string;
 }
 
@@ -236,6 +237,7 @@ export interface CreatePostDto {
   mediaType: string;
   mediaUrl: string;
   description: string;
+  userId: string;
 }
 
 export interface UpdatePostDto {

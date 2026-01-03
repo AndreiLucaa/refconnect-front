@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePost } from '../context/PostContext';
 import { useAIModeration } from '../hooks/useAIModeration';
 import { Image, Video, Send, AlertCircle } from 'lucide-react';
 
 export default function CreatePost() {
     const { user } = useAuth();
     const { checkContent, isChecking } = useAIModeration();
+    const { createPost, error: postError } = usePost();
     const [content, setContent] = useState('');
     const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +26,19 @@ export default function CreatePost() {
             return;
         }
 
-        // Success logic (mock)
-        console.log("Post created:", content);
-        setContent('');
-        alert("Post published successfully!");
+        // Create Post via Context
+        const newPost = await createPost({
+            description: content,
+            mediaUrl: '', // TODO: Implement file upload
+            mediaType: 'text' // TODO: Detect type
+        });
+
+        if (newPost) {
+            setContent('');
+            // alert("Post published successfully!"); // Optional: show toast or something
+        } else {
+            setError("Failed to create post. Check console for details.");
+        }
     };
 
     return (
@@ -54,6 +65,12 @@ export default function CreatePost() {
                             <div className="flex items-center gap-2 text-red-500 text-xs mt-2 bg-red-50 p-2 rounded">
                                 <AlertCircle className="h-3 w-3" />
                                 {error}
+                            </div>
+                        )}
+                        {postError && (
+                             <div className="flex items-center gap-2 text-red-500 text-xs mt-2 bg-red-50 p-2 rounded">
+                                <AlertCircle className="h-3 w-3" />
+                                {postError}
                             </div>
                         )}
 
