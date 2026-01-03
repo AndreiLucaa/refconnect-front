@@ -1,20 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, User } from '../context/AuthContext';
+import { useAuth, api } from '../context/AuthContext';
+import { UpdateUserDto } from '../types';
 import { ChevronLeft, Save } from 'lucide-react';
 
 export default function EditProfile() {
-    const { user } = useAuth();
+    const { user, updateProfile } = useAuth();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetching, setIsFetching] = useState(true);
 
-    // Initialize with user data or defaults
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        bio: user?.bio || '',
-        isPrivate: user?.isPrivate || false,
-        avatarUrl: user?.avatarUrl || ''
+    const [formData, setFormData] = useState<UpdateUserDto>({
+        userName: '',
+        firstName: '',
+        lastName: '',
+        description: '',
+        profileImageUrl: '',
+        isProfilePublic: true,
     });
+    const [formError, setFormError] = useState<string | null>(null);
+
+    // Fetch user data from API
+    useEffect(() => {
+        if (!user?.id) return;
+        
+        const fetchUserData = async () => {
+            setIsFetching(true);
+            try {
+                const resp = await api.get(`/Users/${user.id}`);
+                const userData = resp.data;
+                
+                // Map API response to UpdateUserDto shape
+                setFormData({
+                    userName: userData.userName || '',
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || '',
+                    description: userData.description || '',
+                    profileImageUrl: userData.profileImageUrl || '',
+                    isProfilePublic: userData.isProfilePublic ?? true,
+                });
+            } catch (err: any) {
+                console.error('Failed to fetch user data', err);
+                const serverMsg = err?.response?.data?.message || err?.response?.data || err?.message;
+                setFormError(typeof serverMsg === 'string' ? serverMsg : 'Failed to load profile data');
+            } finally {
+                setIsFetching(false);
+            }
+        };
+
+        fetchUserData();
+    }, [user?.id]);
 
     if (!user) {
         navigate('/login');
@@ -22,26 +57,29 @@ export default function EditProfile() {
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value, type } = e.target;
-        // Check if it's a checkbox - though typescript knows value is string, we cast or check checked
+        const { name, value, type } = e.target as HTMLInputElement;
         if (type === 'checkbox') {
             const checked = (e.target as HTMLInputElement).checked;
-            setFormData(prev => ({ ...prev, [name]: checked }));
+            setFormData(prev => ({ ...prev, [name]: checked } as any));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData(prev => ({ ...prev, [name]: value } as any));
         }
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        // Simulate API update
-        setTimeout(() => {
-            // Here update context user in real app
-            console.log('Saved:', formData);
-            setIsLoading(false);
+        setFormError(null);
+        try {
+            await updateProfile(formData);
             navigate('/profile');
-        }, 800);
+        } catch (err: any) {
+            console.error('Update profile failed', err);
+            const serverMsg = err?.response?.data?.message || err?.response?.data || err?.message;
+            setFormError(typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -53,11 +91,21 @@ export default function EditProfile() {
                 <h1 className="text-xl font-bold">Edit Profile</h1>
             </div>
 
+            {isFetching ? (
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                            <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">Loading profile data...</p>
+                    </div>
+                </div>
+            ) : (
             <form onSubmit={handleSave} className="space-y-6">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
-                        {formData.avatarUrl ? (
-                            <img src={formData.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                        {formData.profileImageUrl ? (
+                            <img src={formData.profileImageUrl} alt="Avatar" className="h-full w-full object-cover" />
                         ) : (
                             <span className="text-xs text-muted-foreground p-2 text-center">No Image</span>
                         )}
@@ -68,56 +116,46 @@ export default function EditProfile() {
                 </div>
 
                 <div className="space-y-4">
+                    {formError && (
+                        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+                    )}
+
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1">
-                            Display Name
-                        </label>
-                        <input
-                            id="name"
-                            name="name"
-                            type="text"
-                            required
-                            className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm"
-                            value={formData.name}
-                            onChange={handleChange}
-                        />
+                        <label htmlFor="userName" className="block text-sm font-medium text-foreground mb-1">User name</label>
+                        <input id="userName" name="userName" type="text" required className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.userName} onChange={handleChange} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1">First name</label>
+                            <input id="firstName" name="firstName" type="text" required className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.firstName} onChange={handleChange} />
+                        </div>
+                        <div>
+                            <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1">Last name</label>
+                            <input id="lastName" name="lastName" type="text" required className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.lastName} onChange={handleChange} />
+                        </div>
                     </div>
 
                     <div>
-                        <label htmlFor="bio" className="block text-sm font-medium text-foreground mb-1">
-                            Bio
-                        </label>
-                        <textarea
-                            id="bio"
-                            name="bio"
-                            rows={3}
-                            className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm"
-                            value={formData.bio}
-                            onChange={handleChange}
-                            placeholder="Tell us about yourself..."
-                        />
+                        <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">Description</label>
+                        <textarea id="description" name="description" rows={3} className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.description} onChange={handleChange} placeholder="Tell people about yourself" />
+                    </div>
+
+                    <div>
+                        <label htmlFor="profileImageUrl" className="block text-sm font-medium text-foreground mb-1">Profile image URL</label>
+                        <input id="profileImageUrl" name="profileImageUrl" type="url" className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.profileImageUrl} onChange={handleChange} placeholder="https://..." />
                     </div>
 
                     <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-card">
                         <div>
-                            <span className="block text-sm font-medium">Private Profile</span>
-                            <span className="text-xs text-muted-foreground">Only followers can see your posts</span>
+                            <span className="block text-sm font-medium">Public profile</span>
+                            <span className="text-xs text-muted-foreground">Allow anyone to see your posts</span>
                         </div>
-                        <input
-                            type="checkbox"
-                            name="isPrivate"
-                            checked={formData.isPrivate}
-                            onChange={handleChange}
-                            className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
-                        />
+                        <input type="checkbox" name="isProfilePublic" checked={formData.isProfilePublic} onChange={handleChange} className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" />
                     </div>
                 </div>
 
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-foreground text-background py-2.5 rounded-lg font-medium hover:opacity-90 flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={isLoading} className="w-full bg-foreground text-background py-2.5 rounded-lg font-medium hover:opacity-90 flex items-center justify-center gap-2">
                     {isLoading ? 'Saving...' : (
                         <>
                             <Save className="h-4 w-4" />
@@ -126,6 +164,7 @@ export default function EditProfile() {
                     )}
                 </button>
             </form>
+            )}
         </div>
     );
 }

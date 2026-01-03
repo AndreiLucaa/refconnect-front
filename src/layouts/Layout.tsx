@@ -1,12 +1,16 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, Search, Users, Shield, User, Menu } from 'lucide-react';
+import ConfirmLogoutModal from '../components/ConfirmLogoutModal';
+import { Home, Search, Users, Shield, User, Menu, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export const Layout = () => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
+    const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+    
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -35,12 +39,22 @@ export const Layout = () => {
 
                 <div className="flex items-center gap-4">
                     {user ? (
-                        <Link to="/profile" className="flex items-center gap-2">
-                            <span className="text-sm font-medium hidden md:block">{user.name}</span>
-                            <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                                {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} /> : <User className="h-4 w-4" />}
-                            </div>
-                        </Link>
+                        <div className="flex items-center gap-3">
+                            <Link to="/profile" className="flex items-center gap-2">
+                                <span className="text-sm font-medium hidden md:block">{user.name}</span>
+                                <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+                                    {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} /> : <User className="h-4 w-4" />}
+                                </div>
+                            </Link>
+                            <button
+                                onClick={() => setShowLogoutModal(true)}
+                                className="hidden md:inline-flex items-center gap-2 text-sm font-medium px-3 py-1 rounded-full bg-muted-foreground/5 hover:bg-muted-foreground/10 transition-colors"
+                                aria-label="Deconectare"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                <span>Deconectare</span>
+                            </button>
+                        </div>
                     ) : (
                         <Link to="/login" className="text-sm font-medium px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
                             Conectează-te
@@ -48,6 +62,17 @@ export const Layout = () => {
                     )}
                 </div>
             </header>
+
+            {/* Logout modal */}
+            <ConfirmLogoutModal
+                open={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                onConfirm={() => {
+                    setShowLogoutModal(false);
+                    logout();
+                    navigate('/login');
+                }}
+            />
 
             {/* Main Content */}
             <main className="container mx-auto max-w-2xl px-4 py-6">
@@ -74,6 +99,10 @@ export const Layout = () => {
                             <User className="h-6 w-6" />
                             <span className="text-[10px]">Profil</span>
                         </Link>
+                        <button onClick={() => setShowLogoutModal(true)} className={cn("flex flex-col items-center gap-1 text-muted-foreground")}>
+                            <LogOut className="h-6 w-6" />
+                            <span className="text-[10px]">Ieșire</span>
+                        </button>
                     </>
                 ) : (
                     <Link to="/login" className={cn("flex flex-col items-center gap-1", isActive('/login') ? "text-primary" : "text-muted-foreground")}>
@@ -85,3 +114,6 @@ export const Layout = () => {
         </div>
     );
 };
+
+// Mount modal outside component return to ensure hooks are in same component
+export default Layout;

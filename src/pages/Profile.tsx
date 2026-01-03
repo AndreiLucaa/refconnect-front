@@ -1,21 +1,48 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { User, Settings, Camera, Grid, Lock, UserPlus, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAuth, api } from '../context/AuthContext';
+import { User, Settings, Grid, Lock, UserPlus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Profile() {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'posts' | 'info'>('posts');
+    const [profileData, setProfileData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Mock data for profile
+    // Fetch profile data from API
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const fetchProfile = async () => {
+            setIsLoading(true);
+            try {
+                const resp = await api.get(`/Users/${user.id}`);
+                setProfileData(resp.data);
+            } catch (err) {
+                console.error('Failed to fetch profile', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, [user?.id]);
+
+    // Mock data for profile (fallback)
     const isOwnProfile = true; // In real app, this depends on URL param vs auth user
-    const profileUser = user || {
-        name: 'Visitor',
+    const profileUser = profileData || user || {
+        userName: 'Visitor',
+        firstName: '',
+        lastName: '',
         role: 'visitor',
-        bio: 'Just visiting',
-        isPrivate: false,
-        avatarUrl: null
+        description: 'Just visiting',
+        isProfilePublic: true,
+        profileImageUrl: null
     };
+
+    const displayName = profileData 
+        ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || profileData.userName 
+        : user?.name || 'Visitor';
 
     if (!user) {
         return (
@@ -27,14 +54,27 @@ export default function Profile() {
         )
     }
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                        <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">Loading profile...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                     <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-4 border-background shadow-sm">
-                        {profileUser.avatarUrl ? (
-                            <img src={profileUser.avatarUrl} alt={profileUser.name} className="h-full w-full object-cover" />
+                        {profileUser.profileImageUrl ? (
+                            <img src={profileUser.profileImageUrl} alt={displayName} className="h-full w-full object-cover" />
                         ) : (
                             <User className="h-12 w-12 text-muted-foreground" />
                         )}
@@ -47,8 +87,8 @@ export default function Profile() {
                 </div>
 
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold">{profileUser.name}</h1>
-                    <p className="text-muted-foreground capitalize">{profileUser.role}</p>
+                    <h1 className="text-2xl font-bold">{displayName}</h1>
+                    <p className="text-muted-foreground capitalize">{profileUser.role || user?.role}</p>
                 </div>
 
                 <div className="flex gap-4 text-sm w-full justify-center">
@@ -76,7 +116,7 @@ export default function Profile() {
 
             {/* Bio */}
             <div className="bg-card border border-border rounded-lg p-4 text-sm">
-                <p>{profileUser.bio || "No description available."}</p>
+                <p>{profileUser.description || profileUser.bio || "No description available."}</p>
             </div>
 
             {/* Tabs */}
