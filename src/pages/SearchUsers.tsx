@@ -1,22 +1,51 @@
 import React, { useState } from 'react';
 import { Search as SearchIcon, UserPlus, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { api } from '../context/AuthContext';
 
 export default function SearchUsers() {
     const [searchTerm, setSearchTerm] = useState('');
+    const [users, setUsers] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Mock search results
-    const allUsers = [
-        { id: 1, name: 'Danciu Valentin', role: 'referee', bio: 'FIFA Assistant Referee' },
-        { id: 2, name: 'Coltescu Sebastian', role: 'referee', bio: 'Regional Referee' },
-        { id: 3, name: 'Neacsu Ionut Traian', role: 'referee', bio: 'Just watching' },
-        { id: 4, name: 'Bogdan Popescu', role: 'referee', bio: 'FIFA Assistant Referee' },
-        { id: 5, name: 'Andrei Luca', role: 'visitor', bio: 'Local Mini-League Referee' },
-    ];
+    // Fetch users (server-side search)
+    React.useEffect(() => {
+        const fetchUsers = async () => {
+            setIsLoading(true);
+            try {
+                // Using /profiles/search?query=... based on ProfilesController
+                const targetUrl = `/profiles/search?query=${encodeURIComponent(searchTerm)}`;
+                const response = await api.get(targetUrl);
 
-    const filteredUsers = allUsers.filter(u =>
-        u.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+                if (Array.isArray(response.data)) {
+                    setUsers(response.data);
+                } else if (response.data && Array.isArray(response.data.items)) {
+                    setUsers(response.data.items);
+                } else {
+                    setUsers([]);
+                }
+                setError(null);
+            } catch (err: any) {
+                console.error('Failed to search users', err);
+                // 404 might mean no results or endpoint issue, but for search it usually returns empty list.
+                // If it really errors, show message.
+                setError('Failed to load users');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // Debounce to avoid too many requests
+        const timeoutId = setTimeout(() => {
+            fetchUsers();
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm]);
+
+    // Since we do server side search, filteredUsers is just users
+    const filteredUsers = users;
 
     return (
         <div className="space-y-6">
@@ -36,26 +65,41 @@ export default function SearchUsers() {
 
             <div className="space-y-2">
                 <h2 className="text-sm font-semibold text-muted-foreground px-1">
-                    {searchTerm ? 'Results' : 'Suggested'}
+                    {searchTerm ? 'Results' : 'All Users'}
                 </h2>
 
                 <div className="flex flex-col gap-2">
-                    {filteredUsers.length > 0 ? filteredUsers.map(user => (
-                        <div key={user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
+                    {isLoading ? (
+                        <div className="flex justify-center py-8">
+                            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-8 text-red-500">
+                            {error}
+                        </div>
+                    ) : filteredUsers.length > 0 ? filteredUsers.map(user => (
+                        <div key={user.userName || user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
                             <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
-                                    <User className="h-5 w-5 text-muted-foreground" />
+                                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden border border-border">
+                                    {user.profileImageUrl ? (
+                                        <img src={user.profileImageUrl} alt={user.userName} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <User className="h-5 w-5 text-muted-foreground" />
+                                    )}
                                 </div>
                                 <div>
-                                    <Link to={`/profile/${user.id}`} className="font-medium hover:underline text-sm block">
-                                        {user.name}
+                                    <Link to={`/profile/${user.id || user.userName}`} className="font-medium hover:underline text-sm block">
+                                        {user.fullName || user.userName}
                                     </Link>
-                                    <span className="text-xs text-muted-foreground lowercase">{user.role}</span>
+                                    <span className="text-xs text-muted-foreground lowercase">{user.role || 'User'}</span>
+                                    {user.description && (
+                                        <p className="text-xs text-muted-foreground line-clamp-1">{user.description}</p>
+                                    )}
                                 </div>
                             </div>
-                            <button className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+                            <Link to={`/profile/${user.id || user.userName}`} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
                                 <UserPlus className="h-4 w-4" />
-                            </button>
+                            </Link>
                         </div>
                     )) : (
                         <div className="text-center py-8 text-muted-foreground">
