@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, api } from '../context/AuthContext';
 import { User, Settings, Grid, Lock, UserPlus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import PostCard from '../components/PostCard';
 
 export default function Profile() {
     const { user } = useAuth();
@@ -9,23 +10,37 @@ export default function Profile() {
     const [profileData, setProfileData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch profile data from API
+    // Fetch profile data (try extended profile like ProfileView does)
     useEffect(() => {
         if (!user?.id) return;
-
+        let mounted = true;
         const fetchProfile = async () => {
             setIsLoading(true);
             try {
-                const resp = await api.get(`/Users/${user.id}`);
-                setProfileData(resp.data);
+                try {
+                    const ext = await api.get(`/profiles/${user.id}/extended`);
+                    if (!mounted) return;
+                    setProfileData(ext.data);
+                    return;
+                } catch (err: any) {
+                    if (err?.response?.status === 403) {
+                        const basic = await api.get(`/profiles/${user.id}`);
+                        if (!mounted) return;
+                        setProfileData(basic.data);
+                        return;
+                    }
+                    throw err;
+                }
             } catch (err) {
                 console.error('Failed to fetch profile', err);
             } finally {
+                if (!mounted) return;
                 setIsLoading(false);
             }
         };
 
         fetchProfile();
+        return () => { mounted = false; };
     }, [user?.id]);
 
     // Mock data for profile (fallback)
@@ -92,18 +107,18 @@ export default function Profile() {
                 </div>
 
                 <div className="flex gap-4 text-sm w-full justify-center">
-                    <div className="flex flex-col items-center">
-                        <span className="font-bold">128</span>
-                        <span className="text-muted-foreground">Posts</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <span className="font-bold">452</span>
-                        <span className="text-muted-foreground">Followers</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <span className="font-bold">321</span>
-                        <span className="text-muted-foreground">Following</span>
-                    </div>
+                        <div className="flex flex-col items-center">
+                            <span className="font-bold">{profileData?.posts?.length ?? '—'}</span>
+                            <span className="text-muted-foreground">Posts</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="font-bold">{profileData?.followersCount ?? '—'}</span>
+                            <span className="text-muted-foreground">Followers</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="font-bold">{profileData?.followingCount ?? '—'}</span>
+                            <span className="text-muted-foreground">Following</span>
+                        </div>
                 </div>
 
                 {!isOwnProfile && (
@@ -140,12 +155,15 @@ export default function Profile() {
             {/* Content */}
             <div className="min-h-[200px]">
                 {activeTab === 'posts' ? (
-                    <div className="grid grid-cols-3 gap-1">
-                        {/* Mock Grid */}
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="aspect-square bg-secondary rounded-sm hover:opacity-90 cursor-pointer" />
-                        ))}
-                    </div>
+                    profileData?.posts && profileData.posts.length > 0 ? (
+                        <div className="space-y-4">
+                            {profileData.posts.map((p: any) => (
+                                <PostCard key={p.postId} post={p} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-4 text-muted-foreground">No posts yet.</div>
+                    )
                 ) : (
                     <div className="space-y-4 text-sm text-muted-foreground">
                         <div className="flex justify-between border-b border-border pb-2">

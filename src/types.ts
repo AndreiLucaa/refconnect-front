@@ -14,6 +14,7 @@ export interface ApplicationUser {
   
 
   posts?: Post[];
+  likeCount?: number;
   comments?: Comment[];
   matchAssignments?: MatchAssignment[];
   chatUsers?: ChatUser[];
@@ -84,6 +85,7 @@ export interface Message {
 
 export interface Post {
   postId: string;
+  likeCount: number;
   userId: string;
   mediaType: string;
   mediaUrl: string;
@@ -129,6 +131,13 @@ export interface Like {
   likedAt: Date;
   user?: ApplicationUser;
   post?: Post;
+}
+
+export interface LikeDto{
+  userId: string;
+  postId: string;
+  likedAt: Date;
+
 }
 
 
@@ -226,6 +235,7 @@ export interface UpdateMatchAssignmentDto {
 // Post DTOs
 export interface PostDto {
   postId: string;
+  likeCount: number;
   userId: string;
   mediaType: string;
   mediaUrl: string;
@@ -238,6 +248,7 @@ export interface CreatePostDto {
   mediaUrl: string;
   description: string;
   userId: string;
+
 }
 
 export interface UpdatePostDto {

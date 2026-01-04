@@ -9,8 +9,9 @@ interface PostContextType {
     fetchPosts: () => Promise<void>;
     createPost: (data: Omit<CreatePostDto, 'userId'>) => Promise<Post | null>;
     deletePost: (postId: string) => Promise<boolean>;
-    likePost: (postId: string) => Promise<void>;
-    unlikePost: (postId: string) => Promise<void>;
+    likePost: (postId: string) => Promise<boolean>;
+    unlikePost: (postId: string) => Promise<boolean>;
+    isPostLiked: (postId: string) => Promise<boolean>;
     addComment: (postId: string, content: string, parentCommentId?: string) => Promise<Comment | null>;
     deleteComment: (commentId: string) => Promise<void>;
 }
@@ -92,21 +93,71 @@ export const PostProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const likePost = async (postId: string) => {
+    const likePost = async (postId: string): Promise<boolean> => {
         try {
-            await api.post(`/posts/${postId}/like`);
-            // Update local state to reflect like if necessary, or refetch
-            // For now, let's assume the caller might want to refetch or we update locally if we know the user
+            // Call backend Like POST
+            await api.post('/Like', { postId });
+            // Optionally inspect response
+            // Update local posts state optimistically
+            setPosts((prev) => prev.map(p => {
+                if (p.postId === postId) {
+                    const newLikeCount = (p.likeCount ?? p.likes?.length ?? 0) + 1;
+                    const newLikes = p.likes ? [...p.likes] : [];
+                    if (user) newLikes.push({ userId: user.id, postId, likedAt: new Date() } as any);
+                    return { ...p, likeCount: newLikeCount, likes: newLikes } as Post;
+                }
+                return p;
+            }));
+            return true;
         } catch (err: any) {
-            console.error('Failed to like post', err);
+            // Detailed error logging for debugging
+            if (err?.response) {
+                console.error(`Like failed: status=${err.response.status} data=`, err.response.data);
+            } else if (err?.request) {
+                console.error('Like failed: no response received, request=', err.request);
+            } else {
+                console.error('Like failed:', err.message || err);
+            }
+            return false;
         }
     };
 
-    const unlikePost = async (postId: string) => {
+    const unlikePost = async (postId: string): Promise<boolean> => {
         try {
-            await api.delete(`/posts/${postId}/like`);
+            // DELETE with body to specify postId
+            await api.delete('/Like', { data: { postId } });
+            setPosts((prev) => prev.map(p => {
+                if (p.postId === postId) {
+                    const current = p.likeCount ?? p.likes?.length ?? 0;
+                    const newLikeCount = Math.max(0, current - 1);
+                    const newLikes = (p.likes || []).filter(l => l.userId !== user?.id);
+                    return { ...p, likeCount: newLikeCount, likes: newLikes } as Post;
+                }
+                return p;
+            }));
+            return true;
         } catch (err: any) {
-            console.error('Failed to unlike post', err);
+            if (err?.response) {
+                console.error(`Unlike failed: status=${err.response.status} data=`, err.response.data);
+            } else if (err?.request) {
+                console.error('Unlike failed: no response received, request=', err.request);
+            } else {
+                console.error('Unlike failed:', err.message || err);
+            }
+            return false;
+        }
+    };
+
+    const isPostLiked = async (postId: string): Promise<boolean> => {
+        try {
+            const resp = await api.get('/Like/exists', { params: { postId } });
+            // Expect boolean or { exists: true }
+            if (typeof resp.data === 'boolean') return resp.data;
+            if (resp.data && typeof resp.data.exists === 'boolean') return resp.data.exists;
+            return !!resp.data;
+        } catch (err: any) {
+            console.error('Failed to check like exists', err);
+            return false;
         }
     };
 
@@ -147,6 +198,7 @@ export const PostProvider = ({ children }: { children: ReactNode }) => {
             deletePost,
             likePost,
             unlikePost,
+            isPostLiked,
             addComment,
             deleteComment
         }}>

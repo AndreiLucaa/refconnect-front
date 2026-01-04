@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, api } from '../context/AuthContext';
 import { usePost } from '../context/PostContext';
 import { useAIModeration } from '../hooks/useAIModeration';
 import { Image, Video, Send, AlertCircle } from 'lucide-react';
@@ -10,6 +10,7 @@ export default function CreatePost() {
     const { createPost, error: postError } = usePost();
     const [content, setContent] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isRefining, setIsRefining] = useState(false);
 
     if (!user) return null;
 
@@ -38,6 +39,20 @@ export default function CreatePost() {
             // alert("Post published successfully!"); // Optional: show toast or something
         } else {
             setError("Failed to create post. Check console for details.");
+        }
+    };
+
+    const handleRefine = async () => {
+        if (!content.trim()) return;
+        setIsRefining(true);
+        try {
+            const resp = await api.post('/AI/refine-post-text',  content );
+            const refined = resp?.data?.refinedText ?? resp?.data?.text ?? resp?.data;
+            if (typeof refined === 'string' && refined.trim()) setContent(refined.trim());
+        } catch (err) {
+            console.error('AI refine failed', err);
+        } finally {
+            setIsRefining(false);
         }
     };
 
@@ -81,6 +96,9 @@ export default function CreatePost() {
                                 </button>
                                 <button type="button" className="p-1.5 hover:bg-secondary rounded-full transition-colors">
                                     <Video className="h-4 w-4" />
+                                </button>
+                                <button type="button" onClick={handleRefine} disabled={isRefining} className="p-1.5 hover:bg-secondary rounded-full transition-colors text-xs">
+                                    {isRefining ? 'AI…' : 'AI'}
                                 </button>
                             </div>
                             <button

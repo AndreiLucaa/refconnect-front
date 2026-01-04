@@ -9,6 +9,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
+import ProfileView from './pages/ProfileView';
+import ProfileMatches from './pages/ProfileMatches';
 import SearchUsers from './pages/SearchUsers';
 import Groups from './pages/Groups';
 import CreateGroup from './pages/CreateGroup';
@@ -30,6 +32,8 @@ function App() {
 
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/edit" element={<EditProfile />} />
+              <Route path="/profile/:id" element={<ProfileView />} />
+              <Route path="/profile/:id/matches" element={<ProfileMatches />} />
               <Route path="/search" element={<SearchUsers />} />
 
               <Route path="/groups" element={<Groups />} />

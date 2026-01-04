@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MoreHorizontal, Heart, MessageCircle, Share2, Trash2 } from 'lucide-react'; // Added Trash2
 import { Link } from 'react-router-dom';
 import { Post } from '../types';
 import { usePost } from '../context/PostContext';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../context/AuthContext';
+import { UpdatePostDto } from '../types';
 
 interface PostProps {
     post: Post;
@@ -11,37 +13,35 @@ interface PostProps {
 
 export default function PostCard({ post }: PostProps) {
     const { user } = useAuth();
-    const { likePost, unlikePost, deletePost } = usePost();
+    const { likePost, unlikePost, deletePost, fetchPosts, isPostLiked } = usePost();
 
-    // Check if current user liked the post
+  
     const isLikedByMe = post.likes?.some(l => l.userId === user?.id) || false;
 
-    // Local state to show immediate feedback (optimistic update is also handled in context, but this helps)
-    // Actually, if context updates post list, we might not need local state if props update.
-    // But for smoother UI, local state is often good. However, if context fetches fresh data, it overrides.
-    // Let's rely on props if we trust parent updates, or locally toggle. 
-    // Given the context implementation fetches/updates list, we can rely on props if the list is updated.
-    // But creating a 'toggle' local state just for animation is fine.
-
-    // For now, let's just use the props derived state. 
-    // If the context optimistically updates the post object in the list, then this will re-render with correct status.
-    // If context doesn't update the specific post object in the array, we won't see changes.
-    // My PostContext `likePost` implementation was "For now, let's assume the caller might want to refetch". 
-    // So I should probably manually fetchPosts or the context should update. 
-    // To be safe, I will implement local state here too.
-
-    const [isLiked, setIsLiked] = useState(isLikedByMe);
-    const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
+    const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe);
+    const [likesCount, setLikesCount] = useState<number>(post.likeCount ?? post.likes?.length ?? 0);
 
     const handleLike = async () => {
         if (isLiked) {
+            // Optimistically update UI
             setLikesCount(prev => Math.max(0, prev - 1));
             setIsLiked(false);
-            await unlikePost(post.postId);
+            const ok = await unlikePost(post.postId);
+            if (!ok) {
+                // revert optimistic update
+                setLikesCount(prev => prev + 1);
+                setIsLiked(true);
+                console.error(`Failed to unlike post ${post.postId}. See previous logs for details.`);
+            }
         } else {
             setLikesCount(prev => prev + 1);
             setIsLiked(true);
-            await likePost(post.postId);
+            const ok = await likePost(post.postId);
+            if (!ok) {
+                setLikesCount(prev => Math.max(0, prev - 1));
+                setIsLiked(false);
+                console.error(`Failed to like post ${post.postId}. See previous logs for details.`);
+            }
         }
     };
 
@@ -55,11 +55,51 @@ export default function PostCard({ post }: PostProps) {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
-    const authorName = post.user ?
-        ((post.user.firstName && post.user.lastName) ? `${post.user.firstName} ${post.user.lastName}` : (post.user.userName || 'Unknown User'))
-        : 'Unknown User';
+    // Local author state: prefer embedded post.user but fall back to calling api/profiles/{id}
+    const [author, setAuthor] = useState<any | null>(post.user || null);
+    const authorName = author ? ((author.firstName && author.lastName) ? `${author.firstName} ${author.lastName}` : (author.userName || 'Unknown User')) : 'Unknown User';
 
     const isAuthor = user?.id === post.userId;
+    const canEdit = isAuthor || user?.role === 'admin';
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState<UpdatePostDto>({
+        description: post.description || '',
+        mediaUrl: post.mediaUrl || '',
+        mediaType: post.mediaType || 'text'
+    });
+    const [isSaving, setIsSaving] = useState(false);
+    const [isRefining, setIsRefining] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchAuthor = async () => {
+            if (post.user) return; // already have embedded author
+            if (!post.userId) return;
+            try {
+                const resp = await api.get(`/profiles/${post.userId}`);
+                if (!mounted) return;
+                setAuthor(resp.data);
+            } catch (err) {
+                // ignore - we'll show fallback Unknown
+                console.debug('Failed to fetch author profile', err);
+            }
+        };
+        fetchAuthor();
+        // Check liked status from backend if available
+        const checkLiked = async () => {
+            if (!post.postId) return;
+            try {
+                const liked = await isPostLiked(post.postId);
+                if (!mounted) return;
+                setIsLiked(liked);
+            } catch (err) {
+                // ignore
+            }
+        };
+        checkLiked();
+        return () => { mounted = false; };
+    }, [post.user, post.userId, post.postId, isPostLiked]);
 
     return (
         <div className="bg-card border border-border rounded-lg p-4 mb-4 text-sm">
@@ -82,15 +122,61 @@ export default function PostCard({ post }: PostProps) {
                         <span className="text-xs text-muted-foreground">{formattedDate}</span>
                     </div>
                 </div>
-                {isAuthor && (
-                    <button onClick={handleDelete} className="text-muted-foreground hover:text-red-500 transition-colors">
-                        <Trash2 className="h-4 w-4" />
-                    </button>
-                )}
+                <div className="flex items-center gap-1">
+                    {isAuthor && (
+                        <button onClick={handleDelete} className="text-muted-foreground hover:text-red-500 transition-colors p-1">
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canEdit && (
+                        <button onClick={() => { setIsEditing(prev => !prev); setEditData({ description: post.description || '', mediaUrl: post.mediaUrl || '', mediaType: post.mediaType || 'text' }); }} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+                            Edit
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Content */}
             <p className="mb-3 whitespace-pre-wrap">{post.description}</p>
+
+            {isEditing && (
+                <form onSubmit={async (e) => { e.preventDefault(); setIsSaving(true); try { await api.put(`/posts/${post.postId}`, editData); setIsEditing(false); try { await fetchPosts(); } catch {} } catch (err) { console.error('Failed to update post', err); } finally { setIsSaving(false); } }} className="space-y-3 mb-3">
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
+                        <textarea value={editData.description} onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))} rows={3} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Media URL</label>
+                        <input type="url" value={editData.mediaUrl} onChange={(e) => setEditData(prev => ({ ...prev, mediaUrl: e.target.value }))} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Media Type</label>
+                        <select value={editData.mediaType} onChange={(e) => setEditData(prev => ({ ...prev, mediaType: e.target.value }))} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm">
+                            <option value="text">Text</option>
+                            <option value="image">Image</option>
+                            <option value="video">Video</option>
+                        </select>
+                    </div>
+                    <div className="flex gap-2">
+                        <button type="button" disabled={isRefining} onClick={async () => {
+                            if (!editData.description.trim()) return;
+                            setIsRefining(true);
+                            try {
+                                // Send raw JSON string body (curl example uses a raw string payload). Use absolute URL so it hits the AI service directly.
+                                const resp = await api.post('/AI/refine-post-text', editData.description);
+                                const refined = resp?.data?.refinedText ?? resp?.data?.text ?? resp?.data;
+                                if (typeof refined === 'string' && refined.trim()) setEditData(prev => ({ ...prev, description: refined.trim() }));
+                            } catch (err) {
+                                console.error('AI refine failed', err);
+                            } finally {
+                                setIsRefining(false);
+                            }
+                        }} className="px-3 py-1 rounded border text-sm">{isRefining ? 'AI…' : 'Refine'}</button>
+                        <button type="submit" disabled={isSaving} className="px-3 py-1 rounded bg-foreground text-background text-sm">{isSaving ? 'Saving...' : 'Save'}</button>
+                        <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1 rounded border text-sm">Cancel</button>
+                    </div>
+                </form>
+            )}
 
             {post.mediaUrl && post.mediaType === 'image' && (
                 <div className="mb-3 rounded-lg overflow-hidden border border-border">
