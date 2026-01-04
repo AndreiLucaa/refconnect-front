@@ -123,13 +123,7 @@ export default function ProfileView() {
         if (!id || !profile) return;
         setIsFollowActionLoading(true);
         try {
-            if (followStatus === 'following') {
-                // Confirm unfollow
-                if (window.confirm(`Are you sure you want to unfollow ${profile.userName}?`)) {
-                    const success = await unfollowUser(id);
-                    if (success) setFollowStatus('not_following');
-                }
-            } else if (followStatus === 'requested') {
+            if (followStatus === 'requested') {
                 // Cancel request
                 const success = await cancelFollowRequest(id);
                 if (success) setFollowStatus('not_following');
@@ -181,18 +175,64 @@ export default function ProfileView() {
         }
     };
 
+    // Unfollow Confirmation State
+    const [isUnfollowModalOpen, setIsUnfollowModalOpen] = useState(false);
+
+    const handleUnfollowClick = async () => {
+        // If public, unfollow immediately without confirmation
+        if (profile.isProfilePublic) {
+            setIsFollowActionLoading(true);
+            try {
+                const success = await unfollowUser(id!);
+                if (success) setFollowStatus('not_following');
+            } catch (err: any) {
+                console.error('Unfollow action failed', err);
+            } finally {
+                setIsFollowActionLoading(false);
+            }
+            return;
+        }
+
+        // If private, show confirmation modal
+        setIsUnfollowModalOpen(true);
+    };
+
+    const confirmUnfollow = async () => {
+        setIsUnfollowModalOpen(false);
+        setIsFollowActionLoading(true);
+        try {
+            const success = await unfollowUser(id!);
+            if (success) setFollowStatus('not_following');
+        } catch (err: any) {
+            console.error('Unfollow action failed', err);
+            alert(`Action failed: ${err.message}`);
+        } finally {
+            setIsFollowActionLoading(false);
+        }
+    };
+
     // Render helper for the button to keep JSX clean
     function renderFollowButton() {
         if (followStatus === 'following') {
             return (
-                <button
-                    onClick={handleFollowClick}
-                    disabled={isFollowActionLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive transition-colors text-sm font-medium"
-                >
-                    {isFollowActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
-                    Following
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        disabled
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-secondary/50 text-secondary-foreground cursor-default text-sm font-medium"
+                    >
+                        <UserCheck className="h-4 w-4" />
+                        Following
+                    </button>
+                    <button
+                        onClick={handleUnfollowClick}
+                        disabled={isFollowActionLoading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-destructive/50 text-destructive hover:bg-destructive hover:text-white transition-colors text-sm font-medium"
+                        title="Unfollow"
+                    >
+                        <UserMinus className="h-4 w-4" />
+                        Unfollow
+                    </button>
+                </div>
             );
         }
         if (followStatus === 'requested') {
@@ -323,6 +363,33 @@ export default function ProfileView() {
                 users={listUsers}
                 isLoading={isListLoading}
             />
+
+            {/* Unfollow Confirmation Modal */}
+            {isUnfollowModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsUnfollowModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-lg bg-background p-6 shadow-xl border border-border">
+                        <h3 className="text-lg font-semibold mb-2">Dorești să dai unfollow?</h3>
+                        <p className="text-sm text-muted-foreground mb-6">
+                            Acest cont este <strong>privat</strong>. Dacă dai unfollow, va trebui să trimiți din nou o cerere și să aștepți aprobarea pentru a vedea conținutul.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsUnfollowModalOpen(false)}
+                                className="px-4 py-2 rounded-md hover:bg-muted transition-colors text-sm"
+                            >
+                                Anulează
+                            </button>
+                            <button
+                                onClick={confirmUnfollow}
+                                className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors text-sm font-medium"
+                            >
+                                Unfollow
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
