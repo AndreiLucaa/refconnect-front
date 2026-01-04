@@ -1,3 +1,6 @@
+// types.ts - Complete updated file
+
+// ============ BASE MODELS ============
 
 export interface ApplicationUser {
   id: string;
@@ -11,7 +14,6 @@ export interface ApplicationUser {
   followingCount: number;
   isProfilePublic: boolean;
   createdAt: Date;
-
 
   posts?: Post[];
   likeCount?: number;
@@ -58,8 +60,11 @@ export interface MatchAssignment {
 
 export interface Chat {
   chatId: string;
-  matchId?: string;
+  description: string;
+  isGroupChat: boolean;
   createdAt: Date;
+  createdByUserId: string;
+  matchId?: string;
   match?: Match;
   chatUsers?: ChatUser[];
   messages?: Message[];
@@ -76,11 +81,11 @@ export interface ChatUser {
 export interface Message {
   messageId: string;
   chatId: string;
-  userId: string;
+  senderId: string;
   content: string;
   sentAt: Date;
   chat?: Chat;
-  user?: ApplicationUser;
+  sender?: ApplicationUser;
 }
 
 export interface Post {
@@ -133,12 +138,12 @@ export interface Like {
   post?: Post;
 }
 
+// ============ DTOs ============
 
 export interface LikeDto {
   userId: string;
   postId: string;
   likedAt: Date;
-
 }
 
 export interface FollowRequestDto {
@@ -147,9 +152,6 @@ export interface FollowRequestDto {
   followingId: string;
   requestedAt: Date;
 }
-
-
-// dtos.ts
 
 // Championship DTOs
 export interface ChampionshipDto {
@@ -257,7 +259,6 @@ export interface CreatePostDto {
   mediaUrl: string;
   description: string;
   userId: string;
-
 }
 
 export interface UpdatePostDto {
@@ -312,52 +313,114 @@ export interface ProfileDto {
 }
 
 export interface ProfileExtendedDto extends ProfileDto {
-
   Posts?: PostDto[];
-
-
 }
-
 
 export interface LoginDto {
   userName: string;
   password: string;
 }
 
-// Chat DTOs
+// ============ CHAT DTOs (UPDATED) ============
+
+// Matches RefConnect/DTOs/Chats/ChatDto.cs
 export interface ChatDto {
   chatId: string;
-  matchId?: string;
-  createdAt: Date;
-  members?: ChatUserDto[];
+  chatType: string;              // "Group" or "Direct" - NOT boolean
+  createdAt: string;             // ISO date string
+  description: string;
+  createdByUserId: string;
+  chatUsers: ChatUserDto[];      // NOT "users"
+  messages: MessageDto[];        // was missing
 }
+
+// Matches RefConnect/DTOs/Chats/ChatDto.cs -> ChatUserDto
 
 export interface ChatUserDto {
-  chatId: string;
-  userId: string;
-  joinedAt: Date;
+  odUserId: string;
+  odUserName: string;
+  profileImageUrl: string | null;
 }
 
+
+export interface CreateGroupChatDto {
+  groupName: string;           
+  description?: string;        
+  initialUserIds: string[];    
+}
+
+
+export interface UpdateChatDto {
+  name?: string;
+  description?: string;
+}
+
+// ============ MESSAGE DTOs (UPDATED) ============
+
+// Matches RefConnect/DTOs/Messages/MessageDto.cs
 export interface MessageDto {
   messageId: string;
   chatId: string;
   senderId: string;
-  senderName: string;
+  senderUserName: string;
+  senderProfileImageUrl: string | null;
   content: string;
-  mediaUrl?: string;
-  createdAt: Date;
-  edited: boolean;
+  sentAt: string;
 }
 
+// Matches RefConnect/DTOs/Messages/CreateMessageDto.cs
 export interface CreateMessageDto {
+  chatId: string;
   content: string;
-  mediaUrl?: string;
 }
 
+// Matches RefConnect/DTOs/Messages/UpdateMessageDto.cs
+export interface UpdateMessageDto {
+  content: string;
+}
+
+// ============ CHAT JOIN REQUEST DTOs ============
+
+export type ChatJoinRequestStatus = "Pending" | "Accepted" | "Declined";
+
+// Matches RefConnect/DTOs/ChatJoinRequest/ChatJoinRequestDto.cs
+export interface ChatJoinRequestDto {
+  chatJoinRequestId: string;
+  chatId: string;
+  chatName: string;
+  userId: string;
+  userName: string;
+  userProfilePicture: string | null;
+  status: ChatJoinRequestStatus;
+  requestedAt: string; // ISO date string
+}
+
+// Matches RefConnect/DTOs/ChatJoinRequest/CreateChatJoinRequestDto.cs
+export interface CreateChatJoinRequestDto {
+  chatId: string;
+}
+
+export interface ChatJoinRequestResponse {
+  message: string;
+}
+
+// ============ UTILITY TYPES ============
 
 export interface PagedResult<T> {
   page: number;
   pageSize: number;
   totalCount: number;
   items: T[];
+}
+
+// ============ API SERVICE INTERFACES ============
+
+export interface ChatJoinRequestApi {
+  getRequestsForOwner: () => Promise<ChatJoinRequestDto[]>;
+  getRequestsForChat: (chatId: string) => Promise<ChatJoinRequestDto[]>;
+  getMyPendingRequests: () => Promise<ChatJoinRequestDto[]>;
+  createJoinRequest: (dto: CreateChatJoinRequestDto) => Promise<ChatJoinRequestDto>;
+  acceptRequest: (requestId: string) => Promise<ChatJoinRequestResponse>;
+  declineRequest: (requestId: string) => Promise<ChatJoinRequestResponse>;
+  cancelRequest: (requestId: string) => Promise<void>;
 }

@@ -1,46 +1,178 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Users, Search } from 'lucide-react';
+import { Plus, Users, Search, UserPlus, Clock, Check, Loader2 } from 'lucide-react';
+import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
+import { ChatDto } from '../types';
 
 export default function Groups() {
-    const groups = [
-        { id: 1, name: 'Premier League Refs', members: 124, description: 'Discussion for PL officials.' },
-        { id: 2, name: 'London FA', members: 56, description: 'Updates and match info for London area.' },
-        { id: 3, name: 'Fitness Training', members: 89, description: 'Weekly training plans and meetups.' },
-    ];
+    const { user } = useAuth();
+    const { 
+        allGroupChats, 
+        chats, 
+        myPendingRequests,
+        fetchAllGroupChats, 
+        searchGroupChats,
+        fetchChats,
+        fetchMyPendingRequests,
+        requestJoinChat,
+        isLoading 
+    } = useChat();
+    
+    const [searchTerm, setSearchTerm] = useState('');
+    const [requestingChatId, setRequestingChatId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchAllGroupChats();
+        fetchChats();
+        fetchMyPendingRequests();
+    }, []);
+
+    // Debounced search
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (searchTerm.trim()) {
+                searchGroupChats(searchTerm.trim());
+            } else {
+                fetchAllGroupChats();
+            }
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm]);
+
+    // Check if user is already a member of a chat
+    const isMember = (chatId: string) => {
+        return chats.some(chat => chat.chatId === chatId);
+    };
+
+    // Check if user has a pending request for a chat
+    const hasPendingRequest = (chatId: string) => {
+        return myPendingRequests.some(req => req.chatId === chatId && req.status === 'Pending');
+    };
+
+    // Check if user is the creator of a chat
+    const isCreator = (chat: ChatDto) => {
+        return chat.createdByUserId === user?.id;
+    };
+
+    const handleRequestJoin = async (chatId: string) => {
+        setRequestingChatId(chatId);
+        try {
+            await requestJoinChat(chatId);
+            await fetchMyPendingRequests(); // Refresh pending requests
+            alert('Join request sent successfully!');
+        } catch (err) {
+            alert('Failed to send join request');
+        } finally {
+            setRequestingChatId(null);
+        }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight">Groups</h1>
-                <Link to="/groups/create" className="bg-primary text-primary-foreground p-2 rounded-full hover:opacity-90 transition-opacity">
-                    <Plus className="h-5 w-5" />
-                </Link>
+                <h1 className="text-2xl font-bold tracking-tight">Grupuri</h1>
+                {user && (
+                    <Link to="/groups/create" className="bg-primary text-primary-foreground p-2 rounded-full hover:opacity-90 transition-opacity">
+                        <Plus className="h-5 w-5" />
+                    </Link>
+                )}
             </div>
 
             <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <input
                     type="text"
-                    placeholder="Search groups..."
+                    placeholder="Caută grupuri..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-secondary/50 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
             </div>
 
-            <div className="flex flex-col gap-3">
-                {groups.map(group => (
-                    <Link key={group.id} to={`/groups/${group.id}`} className="block bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                        <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-primary" />
-                                <h3 className="font-semibold">{group.name}</h3>
+            {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : allGroupChats.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>{searchTerm ? 'Nu s-au găsit grupuri' : 'Nu există grupuri disponibile'}</p>
+                    {user && !searchTerm && (
+                        <Link to="/groups/create" className="text-primary hover:underline mt-2 inline-block">
+                            Creează primul grup
+                        </Link>
+                    )}
+                </div>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    {allGroupChats.map(group => (
+                        <div 
+                            key={group.chatId} 
+                            className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4 text-primary" />
+                                    <h3 className="font-semibold">
+                                        {group.description || 'Grup fără nume'}
+                                    </h3>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                    {group.chatUsers?.length || 0} membri
+                                </span>
                             </div>
-                            <span className="text-xs text-muted-foreground">{group.members} members</span>
+                            
+                            <p className="text-xs text-muted-foreground mb-3">
+                                Creat la: {new Date(group.createdAt).toLocaleDateString('ro-RO')}
+                            </p>
+
+                            <div className="flex items-center justify-end gap-2">
+                                {isCreator(group) ? (
+                                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full flex items-center gap-1">
+                                        <Check className="h-3 w-3" />
+                                        Creatorul grupului
+                                    </span>
+                                ) : isMember(group.chatId) ? (
+                                    <Link 
+                                        to="/chats" 
+                                        className="text-xs bg-green-500/10 text-green-500 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-500/20 transition-colors"
+                                    >
+                                        <Check className="h-3 w-3" />
+                                        Membru - Vezi mesaje
+                                    </Link>
+                                ) : hasPendingRequest(group.chatId) ? (
+                                    <span className="text-xs bg-yellow-500/10 text-yellow-500 px-3 py-1.5 rounded-full flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        Cerere în așteptare
+                                    </span>
+                                ) : user ? (
+                                    <button
+                                        onClick={() => handleRequestJoin(group.chatId)}
+                                        disabled={requestingChatId === group.chatId}
+                                        className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-full flex items-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                                    >
+                                        {requestingChatId === group.chatId ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                            <UserPlus className="h-3 w-3" />
+                                        )}
+                                        Cere să te alături
+                                    </button>
+                                ) : (
+                                    <Link 
+                                        to="/login" 
+                                        className="text-xs text-muted-foreground hover:text-primary"
+                                    >
+                                        Conectează-te pentru a te alătura
+                                    </Link>
+                                )}
+                            </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">{group.description}</p>
-                    </Link>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
