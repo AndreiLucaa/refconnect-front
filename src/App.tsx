@@ -18,6 +18,7 @@ import CreateGroup from './pages/CreateGroup';
 import GroupDetail from './pages/GroupDetail';
 import Matches from './pages/Matches';
 import Delegations from './pages/Delegations';
+import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
@@ -44,6 +45,10 @@ function App() {
 
                 <Route path="/matches" element={<Matches />} />
                 <Route path="/delegations" element={<Delegations />} />
+
+                <Route path="/delegations" element={<Delegations />} />
+
+                <Route path="/notifications" element={<Notifications />} />
 
                 <Route path="/admin" element={<AdminDashboard />} />
 

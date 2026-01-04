@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal';
-import { Home, Search, Users, Shield, User, Menu, LogOut } from 'lucide-react';
+import { Home, Search, Users, Shield, User, Menu, LogOut, Bell } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export const Layout = () => {
@@ -10,7 +10,7 @@ export const Layout = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-    
+
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -30,6 +30,7 @@ export const Layout = () => {
                             <Link to="/matches" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/matches') ? "text-primary" : "text-muted-foreground")}>Meciuri</Link>
                             <Link to="/delegations" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/delegations') ? "text-primary" : "text-muted-foreground")}>Delegări</Link>
                             <Link to="/groups" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>Grupuri</Link>
+                            <Link to="/notifications" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/notifications') ? "text-primary" : "text-muted-foreground")}>Notificări</Link>
                         </>
                     )}
                     {user?.role === 'admin' && (
@@ -94,6 +95,10 @@ export const Layout = () => {
                         <Link to="/groups" className={cn("flex flex-col items-center gap-1", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>
                             <Users className="h-6 w-6" />
                             <span className="text-[10px]">Grupuri</span>
+                        </Link>
+                        <Link to="/notifications" className={cn("flex flex-col items-center gap-1", isActive('/notifications') ? "text-primary" : "text-muted-foreground")}>
+                            <Bell className="h-6 w-6" />
+                            <span className="text-[10px]">Notificări</span>
                         </Link>
                         <Link to="/profile" className={cn("flex flex-col items-center gap-1", isActive('/profile') ? "text-primary" : "text-muted-foreground")}>
                             <User className="h-6 w-6" />
