@@ -11,7 +11,7 @@ import UserListModal from '../components/UserListModal';
 export default function ProfileView() {
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
-    const { followUser, sendFollowRequest, unfollowUser, cancelFollowRequest, checkFollowStatus } = useFollow();
+    const { followUser, sendFollowRequest, unfollowUser, cancelFollowRequest, checkFollowStatus, getFollowers, getFollowing } = useFollow();
     const [profile, setProfile] = useState<any | null>(null);
     const [extended, setExtended] = useState<any | null>(null);
     const { isPostLiked } = usePost();
@@ -22,6 +22,16 @@ export default function ProfileView() {
     // Follow state
     const [followStatus, setFollowStatus] = useState<'following' | 'requested' | 'not_following' | 'loading'>('loading');
     const [isFollowActionLoading, setIsFollowActionLoading] = useState(false);
+
+    // Counts state
+    const [followersCount, setFollowersCount] = useState<number>(0);
+    const [followingCount, setFollowingCount] = useState<number>(0);
+
+    // List Modal State
+    const [isListOpen, setIsListOpen] = useState(false);
+    const [listType, setListType] = useState<'followers' | 'following'>('followers');
+    const [listUsers, setListUsers] = useState<any[]>([]);
+    const [isListLoading, setIsListLoading] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -66,6 +76,26 @@ export default function ProfileView() {
         fetchProfile();
         return () => { mounted = false; };
     }, [id, user, checkFollowStatus]);
+
+    // Fetch accurate counts
+    useEffect(() => {
+        if (!id) return;
+        let mounted = true;
+        const fetchCounts = async () => {
+            try {
+                const followers = await getFollowers(id);
+                const following = await getFollowing(id);
+                if (mounted) {
+                    setFollowersCount(followers.length);
+                    setFollowingCount(following.length);
+                }
+            } catch (e) {
+                console.error("Failed to fetch counts", e);
+            }
+        };
+        fetchCounts();
+        return () => { mounted = false; };
+    }, [id, followStatus]);
 
     // When we have profile.posts, pre-check like status for each post
     useEffect(() => {
@@ -121,6 +151,36 @@ export default function ProfileView() {
         }
     };
 
+    const openList = async (type: 'followers' | 'following') => {
+        // Privacy check: 
+        // If profile is public, anyone can see.
+        // If profile is private, only followers (me) can see.
+        // `followStatus` is 'following' if I am following them.
+        const canView = profile.isProfilePublic || followStatus === 'following' || isMe;
+
+        if (!canView) {
+            alert('Acest cont este privat. Urmărește pentru a vedea informațiile.');
+            return;
+        }
+
+        setListType(type);
+        setIsListOpen(true);
+        setIsListLoading(true);
+        try {
+            let data = [];
+            if (type === 'followers') {
+                data = await getFollowers(id!);
+            } else {
+                data = await getFollowing(id!);
+            }
+            setListUsers(data);
+        } catch (error) {
+            console.error("Failed to fetch user list", error);
+        } finally {
+            setIsListLoading(false);
+        }
+    };
+
     // Render helper for the button to keep JSX clean
     function renderFollowButton() {
         if (followStatus === 'following') {
@@ -158,43 +218,6 @@ export default function ProfileView() {
             </button>
         );
     }
-
-    // List Modal State
-    const { getFollowers, getFollowing } = useFollow();
-    const [isListOpen, setIsListOpen] = useState(false);
-    const [listType, setListType] = useState<'followers' | 'following'>('followers');
-    const [listUsers, setListUsers] = useState<any[]>([]);
-    const [isListLoading, setIsListLoading] = useState(false);
-
-    const openList = async (type: 'followers' | 'following') => {
-        // Privacy check: 
-        // If profile is public, anyone can see.
-        // If profile is private, only followers (me) can see.
-        // `followStatus` is 'following' if I am following them.
-        const canView = profile.isProfilePublic || followStatus === 'following' || isMe;
-
-        if (!canView) {
-            alert('Acest cont este privat. Urmărește pentru a vedea informațiile.');
-            return;
-        }
-
-        setListType(type);
-        setIsListOpen(true);
-        setIsListLoading(true);
-        try {
-            let data = [];
-            if (type === 'followers') {
-                data = await getFollowers(id!);
-            } else {
-                data = await getFollowing(id!);
-            }
-            setListUsers(data);
-        } catch (error) {
-            console.error("Failed to fetch user list", error);
-        } finally {
-            setIsListLoading(false);
-        }
-    };
 
     if (!id) return <div className="p-8">No user specified</div>;
 
@@ -253,20 +276,20 @@ export default function ProfileView() {
                 <p>{profile.description || profile.bio || 'No description.'}</p>
             </div>
 
-            {extended && (
-                <div className="bg-card border border-border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">More about this user</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <button onClick={() => openList('followers')} className="text-left hover:opacity-75 transition-opacity">
-                            <strong>Urmăritori: </strong><span className="text-muted-foreground">{extended.followersCount ?? '—'}</span>
-                        </button>
-                        <button onClick={() => openList('following')} className="text-left hover:opacity-75 transition-opacity">
-                            <strong>Urmăriri: </strong><span className="text-muted-foreground">{extended.followingCount ?? '—'}</span>
-                        </button>
+            {/* Counts Section */}
+            <div className="bg-card border border-border rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <button onClick={() => openList('followers')} className="text-left hover:opacity-75 transition-opacity">
+                        <strong>Urmăritori: </strong><span className="text-muted-foreground">{followersCount}</span>
+                    </button>
+                    <button onClick={() => openList('following')} className="text-left hover:opacity-75 transition-opacity">
+                        <strong>Urmăriri: </strong><span className="text-muted-foreground">{followingCount}</span>
+                    </button>
+                    {extended && (
                         <div className="col-span-2"><strong>Data înscrierii: </strong><span className="text-muted-foreground">{extended.createdAt ? new Date(extended.createdAt).toLocaleDateString() : '—'}</span></div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </div>
 
             <div>
                 <h3 className="text-lg font-semibold">Posts</h3>
