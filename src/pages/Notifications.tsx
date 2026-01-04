@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useFollow } from '../context/FollowContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, api } from '../context/AuthContext';
 import { normalizeAssetUrl } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { User, Check, X, Bell } from 'lucide-react';
@@ -16,8 +16,24 @@ export default function Notifications() {
         const fetchRequests = async () => {
             try {
                 const data = await getPendingRequests();
+
+                // Fetch user details for each request to ensure we have names/avatars
+                const enrichedData = await Promise.all(data.map(async (req: any) => {
+                    // If we already have user info, use it
+                    if (req.follower || req.user) return req;
+
+                    try {
+                        // Fetch profile for the follower
+                        const profileRes = await api.get(`/profiles/${req.followerId}`);
+                        return { ...req, follower: profileRes.data };
+                    } catch (e) {
+                        console.error(`Failed to fetch profile for ${req.followerId}`, e);
+                        return req;
+                    }
+                }));
+
                 if (mounted) {
-                    setRequests(data);
+                    setRequests(enrichedData);
                 }
             } catch (error) {
                 console.error("Failed to fetch notifications", error);
