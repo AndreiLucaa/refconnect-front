@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MoreHorizontal, Heart, MessageCircle, Share2, Trash2 } from 'lucide-react'; // Added Trash2
+import CommentsModal from './CommentsModal';
 import { Link } from 'react-router-dom';
 import { Post } from '../types';
 import { usePost } from '../context/PostContext';
@@ -9,17 +10,19 @@ import { UpdatePostDto } from '../types';
 
 interface PostProps {
     post: Post;
+    initialIsLiked?: boolean;
+    initialLikesCount?: number;
 }
 
-export default function PostCard({ post }: PostProps) {
+export default function PostCard({ post, initialIsLiked, initialLikesCount }: PostProps) {
     const { user } = useAuth();
     const { likePost, unlikePost, deletePost, fetchPosts, isPostLiked } = usePost();
 
   
     const isLikedByMe = post.likes?.some(l => l.userId === user?.id) || false;
 
-    const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe);
-    const [likesCount, setLikesCount] = useState<number>(post.likeCount ?? post.likes?.length ?? 0);
+    const [isLiked, setIsLiked] = useState<boolean>(typeof initialIsLiked === 'boolean' ? initialIsLiked : isLikedByMe);
+    const [likesCount, setLikesCount] = useState<number>(typeof initialLikesCount === 'number' ? initialLikesCount : (post.likeCount ?? post.likes?.length ?? 0));
 
     const handleLike = async () => {
         if (isLiked) {
@@ -50,6 +53,8 @@ export default function PostCard({ post }: PostProps) {
             await deletePost(post.postId);
         }
     };
+
+    const [showComments, setShowComments] = useState(false);
 
     const formattedDate = new Date(post.createdAt).toLocaleDateString(undefined, {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -86,7 +91,7 @@ export default function PostCard({ post }: PostProps) {
             }
         };
         fetchAuthor();
-        // Check liked status from backend if available
+        
         const checkLiked = async () => {
             if (!post.postId) return;
             try {
@@ -94,7 +99,7 @@ export default function PostCard({ post }: PostProps) {
                 if (!mounted) return;
                 setIsLiked(liked);
             } catch (err) {
-                // ignore
+                
             }
         };
         checkLiked();
@@ -198,7 +203,7 @@ export default function PostCard({ post }: PostProps) {
                     <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                     {likesCount}
                 </button>
-                <button className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="h-4 w-4" />
                     {post.comments?.length || 0}
                 </button>
@@ -206,6 +211,7 @@ export default function PostCard({ post }: PostProps) {
                     <Share2 className="h-4 w-4" />
                 </button>
             </div>
+            <CommentsModal open={showComments} onClose={() => setShowComments(false)} postId={post.postId} initialComments={post.comments} />
         </div>
     );
 }

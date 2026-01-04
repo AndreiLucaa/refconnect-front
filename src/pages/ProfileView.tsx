@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
+import { usePost } from '../context/PostContext';
 import { Lock } from 'lucide-react';
 
 export default function ProfileView() {
     const { id } = useParams<{ id: string }>();
     const [profile, setProfile] = useState<any | null>(null);
     const [extended, setExtended] = useState<any | null>(null);
+    const { isPostLiked } = usePost();
+    const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +30,18 @@ export default function ProfileView() {
                 } catch (err: any) {
                     if (err?.response?.status === 403) {
                         // fallback to basic profile
-                        const basic = await api.get(`/profiles/${id}`);
-                        if (!mounted) return;
-                        setProfile(basic.data);
+                        console.error('ProfileView: extended profile fetch forbidden, trying basic', err?.response?.status, err?.response?.data);
+                       
+                        
+                       
                         return;
                     }
+                    const basic = await api.get(`/profiles/${id}`);
+                    if (!mounted) return;
+                    setProfile(basic.data);
+                    return;
+
+
                     // other errors fallthrough
                     throw err;
                 }
@@ -47,6 +57,28 @@ export default function ProfileView() {
         fetchProfile();
         return () => { mounted = false; };
     }, [id]);
+
+    // When we have profile.posts, pre-check like status for each post
+    useEffect(() => {
+        let mounted = true;
+        const checkLikes = async () => {
+            if (!profile?.posts || !Array.isArray(profile.posts)) return;
+            const entries = await Promise.all(profile.posts.map(async (p: any) => {
+                try {
+                    const liked = await isPostLiked(p.postId);
+                    return [p.postId, !!liked] as [string, boolean];
+                } catch (e) {
+                    return [p.postId, false] as [string, boolean];
+                }
+            }));
+            if (!mounted) return;
+            const map: Record<string, boolean> = {};
+            for (const [k, v] of entries) map[k] = v;
+            setLikedMap(map);
+        };
+        checkLikes();
+        return () => { mounted = false; };
+    }, [profile?.posts, isPostLiked]);
 
     if (!id) return <div className="p-8">No user specified</div>;
 
@@ -104,7 +136,7 @@ export default function ProfileView() {
                 {profile.posts && profile.posts.length > 0 ? (
                     <div className="space-y-4 mt-3">
                         {profile.posts.map((p: any) => (
-                            <PostCard key={p.postId} post={p} />
+                            <PostCard key={p.postId} post={p} initialIsLiked={likedMap[p.postId]} initialLikesCount={(p.likeCount ?? p.likes?.length ?? 0)} />
                         ))}
                     </div>
                 ) : (

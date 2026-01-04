@@ -19,8 +19,36 @@ export default function EditProfile() {
         isProfilePublic: true,
     });
     const [formError, setFormError] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-    // Fetch user data from API
+   
+    const makeAbsoluteUrl = (url: string) => {
+        if (!url) return url;
+      
+        if (/^https?:\/\//i.test(url)) return url;
+        let path = url;
+        if (!path.startsWith('/')) path = '/' + path;
+        const base = api.defaults.baseURL || '';
+        let baseForAssets = base;
+        
+        if (/\/api\/?$/i.test(base)) {
+            if (/^\/api\//i.test(path) || /^\/uploads\//i.test(path)) {
+                baseForAssets = base.replace(/\/api\/?$/i, '');
+            }
+        }
+        return `${baseForAssets.replace(/\/$/, '')}${path}`;
+    };
+
+
+    useEffect(() => {
+        return () => {
+            if (previewUrl) {
+                try { URL.revokeObjectURL(previewUrl); } catch (e) {}
+            }
+        };
+    }, [previewUrl]);
+
     useEffect(() => {
         if (!user?.id) return;
         
@@ -71,7 +99,79 @@ export default function EditProfile() {
         setIsLoading(true);
         setFormError(null);
         try {
+           
+            if (selectedFile && user?.id) {
+                const fd = new FormData();
+                fd.append('file', selectedFile);
+               
+                const ep = `/Users/${user.id}/profile-image`;
+                let uploadedUrl: string | null = null;
+                let lastError: any = null;
+                try {
+                    console.debug('Attempting profile upload to', ep);
+                    const upResp = await api.post(ep, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    const returned = upResp?.data;
+                    const url = returned?.profileImageUrl || returned?.url || returned?.path || returned;
+                    if (url && typeof url === 'string') {
+                        uploadedUrl = url;
+                        console.debug('Upload succeeded to', ep, 'returned', url);
+                    } else if (typeof returned === 'string' && returned.trim()) {
+                        uploadedUrl = returned;
+                        console.debug('Upload returned raw string URL from', ep, returned);
+                    } else {
+                       
+                        console.debug('Upload to', ep, 'succeeded but returned unexpected body', returned);
+                    }
+                } catch (err: any) {
+                    lastError = err;
+                    const status = err?.response?.status;
+                    console.debug('Upload attempt failed', ep, status, err?.response?.data || err?.message || err);
+                }
+                if (!uploadedUrl && lastError) {
+                    console.error('Profile picture upload failed for all endpoints. Last error:', lastError);
+                    const serverMsg = lastError?.response?.data?.message || lastError?.response?.data || lastError?.message;
+                    setFormError(typeof serverMsg === 'string' ? serverMsg : 'Failed to upload profile picture (no matching endpoint)');
+                    setIsLoading(false);
+                    return;
+                }
+                if (uploadedUrl) {
+                    let finalUrl = uploadedUrl;
+                    try {
+                        if (typeof finalUrl === 'string' && finalUrl.startsWith('/')) {
+                            finalUrl = makeAbsoluteUrl(finalUrl);
+                        }
+                    } catch (e) {
+                        /* ignore */
+                    }
+                    setFormData(prev => ({ ...prev, profileImageUrl: finalUrl } as any));
+                }
+            }
+
             await updateProfile(formData);
+
+            // Refresh user record from server to pick up any server-populated profileImageUrl
+            try {
+                if (user?.id) {
+                    const fresh = await api.get(`/Users/${user.id}`);
+                    const u = fresh?.data;
+                    if (u && u.profileImageUrl) {
+                        let profileUrl = u.profileImageUrl;
+                        try {
+                            if (typeof profileUrl === 'string' && profileUrl.startsWith('/')) {
+                                profileUrl = makeAbsoluteUrl(profileUrl);
+                            }
+                        } catch (e) {
+                            /* ignore */
+                        }
+                        setFormData(prev => ({ ...prev, profileImageUrl: profileUrl } as any));
+                        // clear preview so the UI will load the server-hosted image
+                        setPreviewUrl(null);
+                    }
+                }
+            } catch (e) {
+                console.debug('Failed to refresh user after update', e);
+            }
+
             navigate('/profile');
         } catch (err: any) {
             console.error('Update profile failed', err);
@@ -81,6 +181,8 @@ export default function EditProfile() {
             setIsLoading(false);
         }
     };
+
+    
 
     return (
         <div className="space-y-6">
@@ -104,15 +206,24 @@ export default function EditProfile() {
             <form onSubmit={handleSave} className="space-y-6">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
-                        {formData.profileImageUrl ? (
+                        {previewUrl ? (
+                            <img src={previewUrl} alt="Avatar preview" className="h-full w-full object-cover" />
+                        ) : formData.profileImageUrl ? (
                             <img src={formData.profileImageUrl} alt="Avatar" className="h-full w-full object-cover" />
                         ) : (
                             <span className="text-xs text-muted-foreground p-2 text-center">No Image</span>
                         )}
                     </div>
-                    <button type="button" className="text-sm text-primary font-medium hover:underline">
-                        Change Profile Photo
-                    </button>
+                    <div className="text-sm text-primary font-medium">
+                        <label htmlFor="profileFile" className="cursor-pointer hover:underline">Change Profile Photo</label>
+                        <input id="profileFile" name="profileFile" type="file" accept="image/*" onChange={(e) => {
+                            const file = e.target.files && e.target.files[0];
+                            if (file) {
+                                setSelectedFile(file);
+                                try { setPreviewUrl(URL.createObjectURL(file)); } catch (e) { setPreviewUrl(null); }
+                            }
+                        }} className="hidden" />
+                    </div>
                 </div>
 
                 <div className="space-y-4">
@@ -141,10 +252,7 @@ export default function EditProfile() {
                         <textarea id="description" name="description" rows={3} className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.description} onChange={handleChange} placeholder="Tell people about yourself" />
                     </div>
 
-                    <div>
-                        <label htmlFor="profileImageUrl" className="block text-sm font-medium text-foreground mb-1">Profile image URL</label>
-                        <input id="profileImageUrl" name="profileImageUrl" type="url" className="block w-full rounded-md border border-input bg-transparent px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm" value={formData.profileImageUrl} onChange={handleChange} placeholder="https://..." />
-                    </div>
+                    {/* Profile picture is uploaded from local file; remove manual URL input */}
 
                     <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-card">
                         <div>

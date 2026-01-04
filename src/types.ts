@@ -241,6 +241,7 @@ export interface PostDto {
   mediaUrl: string;
   description: string;
   createdAt: Date;
+  comments?: CommentDto[];
 }
 
 export interface CreatePostDto {
@@ -300,6 +301,14 @@ export interface ProfileDto {
   profileImageUrl: string;
   isProfilePublic: boolean;
 }
+
+export interface ProfileExtendedDto extends ProfileDto {
+
+  Posts?: PostDto[];
+
+
+}
+
 
 export interface LoginDto {
   userName: string;

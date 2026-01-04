@@ -3,29 +3,42 @@ import { useAuth, api } from '../context/AuthContext';
 import { User, Settings, Grid, Lock, UserPlus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PostCard from '../components/PostCard';
+import { usePost } from '../context/PostContext';
 
 export default function Profile() {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'posts' | 'info'>('posts');
     const [profileData, setProfileData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const { isPostLiked } = usePost();
+    const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
 
     // Fetch profile data (try extended profile like ProfileView does)
     useEffect(() => {
-        if (!user?.id) return;
+        // tolerate different JWT claim names: id, sub, userId
+        const profileId = user?.id || (user as any)?.sub || (user as any)?.userId;
+        if (!profileId) {
+            console.debug('Profile: no user id/sub/userId available yet, skipping fetch');
+            setIsLoading(false);
+            return;
+        }
+        console.debug('Profile: fetching for profileId=', profileId);
         let mounted = true;
         const fetchProfile = async () => {
             setIsLoading(true);
             try {
                 try {
-                    const ext = await api.get(`/profiles/${user.id}/extended`);
+                    const ext = await api.get(`/profiles/${profileId}/extended`);
                     if (!mounted) return;
+                    console.debug('Profile: extended profile response', ext && ext.status, ext && ext.data);
                     setProfileData(ext.data);
                     return;
                 } catch (err: any) {
+                    console.debug('Profile: extended profile fetch errored', err?.response?.status, err?.response?.data);
                     if (err?.response?.status === 403) {
-                        const basic = await api.get(`/profiles/${user.id}`);
+                        const basic = await api.get(`/profiles/${profileId}`);
                         if (!mounted) return;
+                        console.debug('Profile: basic profile response', basic && basic.status, basic && basic.data);
                         setProfileData(basic.data);
                         return;
                     }
@@ -42,6 +55,28 @@ export default function Profile() {
         fetchProfile();
         return () => { mounted = false; };
     }, [user?.id]);
+
+    // When we have profileData.posts, pre-check like status for each post
+    useEffect(() => {
+        let mounted = true;
+        const checkLikes = async () => {
+            if (!profileData?.posts || !Array.isArray(profileData.posts)) return;
+            const entries = await Promise.all(profileData.posts.map(async (p: any) => {
+                try {
+                    const liked = await isPostLiked(p.postId);
+                    return [p.postId, !!liked] as [string, boolean];
+                } catch (e) {
+                    return [p.postId, false] as [string, boolean];
+                }
+            }));
+            if (!mounted) return;
+            const map: Record<string, boolean> = {};
+            for (const [k, v] of entries) map[k] = v;
+            setLikedMap(map);
+        };
+        checkLikes();
+        return () => { mounted = false; };
+    }, [profileData?.posts, isPostLiked]);
 
     // Mock data for profile (fallback)
     const isOwnProfile = true; // In real app, this depends on URL param vs auth user
@@ -158,8 +193,8 @@ export default function Profile() {
                     profileData?.posts && profileData.posts.length > 0 ? (
                         <div className="space-y-4">
                             {profileData.posts.map((p: any) => (
-                                <PostCard key={p.postId} post={p} />
-                            ))}
+                                    <PostCard key={p.postId} post={p} initialIsLiked={likedMap[p.postId]} initialLikesCount={(p.likeCount ?? p.likes?.length ?? 0)} />
+                                ))}
                         </div>
                     ) : (
                         <div className="p-4 text-muted-foreground">No posts yet.</div>
