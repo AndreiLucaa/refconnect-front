@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom';
 import PostCard from '../components/PostCard';
 import { normalizeAssetUrl } from '../lib/utils';
 import { usePost } from '../context/PostContext';
+import { useFollow } from '../context/FollowContext';
+import UserListModal from '../components/UserListModal';
 
 export default function Profile() {
     const { user } = useAuth();
@@ -14,9 +16,9 @@ export default function Profile() {
     const { isPostLiked } = usePost();
     const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
 
-    
+
     useEffect(() => {
-        
+
         const profileId = user?.id || (user as any)?.sub || (user as any)?.userId;
         if (!profileId) {
             console.debug('Profile: no user id/sub/userId available yet, skipping fetch');
@@ -90,9 +92,38 @@ export default function Profile() {
         profileImageUrl: null
     };
 
-    const displayName = profileData 
-        ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || profileData.userName 
+    const displayName = profileData
+        ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || profileData.userName
         : user?.name || 'Visitor';
+    // List Modal State
+    const { getFollowers, getFollowing } = useFollow();
+
+    const [isListOpen, setIsListOpen] = useState(false);
+    const [listType, setListType] = useState<'followers' | 'following'>('followers');
+    const [listUsers, setListUsers] = useState<any[]>([]);
+    const [isListLoading, setIsListLoading] = useState(false);
+
+    const openList = async (type: 'followers' | 'following') => {
+        setListType(type);
+        setIsListOpen(true);
+        setIsListLoading(true);
+        try {
+            const profileId = user?.id || (user as any)?.sub || (user as any)?.userId;
+            if (!profileId) return;
+
+            let data = [];
+            if (type === 'followers') {
+                data = await getFollowers(profileId);
+            } else {
+                data = await getFollowing(profileId);
+            }
+            setListUsers(data);
+        } catch (error) {
+            console.error("Failed to fetch user list", error);
+        } finally {
+            setIsListLoading(false);
+        }
+    };
 
     if (!user) {
         return (
@@ -142,18 +173,18 @@ export default function Profile() {
                 </div>
 
                 <div className="flex gap-4 text-sm w-full justify-center">
-                        <div className="flex flex-col items-center">
-                            <span className="font-bold">{profileData?.posts?.length ?? '—'}</span>
-                            <span className="text-muted-foreground">Posts</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <span className="font-bold">{profileData?.followersCount ?? '—'}</span>
-                            <span className="text-muted-foreground">Followers</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <span className="font-bold">{profileData?.followingCount ?? '—'}</span>
-                            <span className="text-muted-foreground">Following</span>
-                        </div>
+                    <div className="flex flex-col items-center">
+                        <span className="font-bold">{profileData?.posts?.length ?? '—'}</span>
+                        <span className="text-muted-foreground">Postări</span>
+                    </div>
+                    <button onClick={() => openList('followers')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
+                        <span className="font-bold">{profileData?.followersCount ?? '—'}</span>
+                        <span className="text-muted-foreground">Urmăritori</span>
+                    </button>
+                    <button onClick={() => openList('following')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
+                        <span className="font-bold">{profileData?.followingCount ?? '—'}</span>
+                        <span className="text-muted-foreground">Urmăriri</span>
+                    </button>
                 </div>
 
                 {!isOwnProfile && (
@@ -193,8 +224,8 @@ export default function Profile() {
                     profileData?.posts && profileData.posts.length > 0 ? (
                         <div className="space-y-4">
                             {profileData.posts.map((p: any) => (
-                                    <PostCard key={p.postId} post={p} initialIsLiked={likedMap[p.postId]} initialLikesCount={(p.likeCount ?? p.likes?.length ?? 0)} />
-                                ))}
+                                <PostCard key={p.postId} post={p} initialIsLiked={likedMap[p.postId]} initialLikesCount={(p.likeCount ?? p.likes?.length ?? 0)} />
+                            ))}
                         </div>
                     ) : (
                         <div className="p-4 text-muted-foreground">No posts yet.</div>
@@ -213,6 +244,16 @@ export default function Profile() {
                     </div>
                 )}
             </div>
+
+            {/* Lists Modal */}
+            <UserListModal
+                isOpen={isListOpen}
+                onClose={() => setIsListOpen(false)}
+                title={listType === 'followers' ? 'Urmăritori' : 'Urmăriri'}
+                type={listType as any}
+                users={listUsers}
+                isLoading={isListLoading}
+            />
         </div>
     );
 }

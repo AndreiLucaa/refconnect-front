@@ -146,6 +146,12 @@ export interface LikeDto {
   likedAt: Date;
 }
 
+export interface FollowDto {
+    followerId: string;
+    followingId: string;
+    followedAt: Date;
+}
+
 export interface FollowRequestDto {
   followRequestId: string;
   followerId: string;

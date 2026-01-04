@@ -19,6 +19,7 @@ import CreateGroup from './pages/CreateGroup';
 import GroupDetail from './pages/GroupDetail';
 import Matches from './pages/Matches';
 import Delegations from './pages/Delegations';
+import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
 import Chats from './pages/Chats';
 
@@ -41,14 +42,13 @@ function App() {
                   <Route path="/profile/:id/matches" element={<ProfileMatches />} />
                   <Route path="/search" element={<SearchUsers />} />
 
-                  <Route path="/groups" element={<Groups />} />
-                  <Route path="/groups/create" element={<CreateGroup />} />
-                  <Route path="/groups/:id" element={<GroupDetail />} />
-
-                  <Route path="/chats" element={<Chats />} />
+                <Route path="/groups" element={<Groups />} />
+                <Route path="/groups/create" element={<CreateGroup />} />
+                <Route path="/groups/:id" element={<GroupDetail />} />
 
                   <Route path="/matches" element={<Matches />} />
                   <Route path="/delegations" element={<Delegations />} />
+                <Route path="/notifications" element={<Notifications />} />
 
                   <Route path="/admin" element={<AdminDashboard />} />
 

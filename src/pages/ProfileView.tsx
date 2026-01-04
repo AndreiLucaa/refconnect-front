@@ -6,11 +6,12 @@ import PostCard from '../components/PostCard';
 import { usePost } from '../context/PostContext';
 import { useFollow } from '../context/FollowContext';
 import { UserPlus, UserCheck, UserMinus, Loader2 } from 'lucide-react';
+import UserListModal from '../components/UserListModal';
 
 export default function ProfileView() {
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
-    const { followUser, sendFollowRequest, unfollowUser, cancelFollowRequest, checkFollowStatus } = useFollow();
+    const { followUser, sendFollowRequest, unfollowUser, cancelFollowRequest, checkFollowStatus, getFollowers, getFollowing } = useFollow();
     const [profile, setProfile] = useState<any | null>(null);
     const [extended, setExtended] = useState<any | null>(null);
     const { isPostLiked } = usePost();
@@ -21,6 +22,16 @@ export default function ProfileView() {
     // Follow state
     const [followStatus, setFollowStatus] = useState<'following' | 'requested' | 'not_following' | 'loading'>('loading');
     const [isFollowActionLoading, setIsFollowActionLoading] = useState(false);
+
+    // Counts state
+    const [followersCount, setFollowersCount] = useState<number>(0);
+    const [followingCount, setFollowingCount] = useState<number>(0);
+
+    // List Modal State
+    const [isListOpen, setIsListOpen] = useState(false);
+    const [listType, setListType] = useState<'followers' | 'following'>('followers');
+    const [listUsers, setListUsers] = useState<any[]>([]);
+    const [isListLoading, setIsListLoading] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -53,7 +64,7 @@ export default function ProfileView() {
                 }
             } catch (err: any) {
                 console.error('Failed to fetch profile view', err);
-                
+
                 if (!mounted) return;
                 setError(err?.message || 'Failed to load');
             } finally {
@@ -65,6 +76,26 @@ export default function ProfileView() {
         fetchProfile();
         return () => { mounted = false; };
     }, [id, user, checkFollowStatus]);
+
+    // Fetch accurate counts
+    useEffect(() => {
+        if (!id) return;
+        let mounted = true;
+        const fetchCounts = async () => {
+            try {
+                const followers = await getFollowers(id);
+                const following = await getFollowing(id);
+                if (mounted) {
+                    setFollowersCount(followers.length);
+                    setFollowingCount(following.length);
+                }
+            } catch (e) {
+                console.error("Failed to fetch counts", e);
+            }
+        };
+        fetchCounts();
+        return () => { mounted = false; };
+    }, [id, followStatus]);
 
     // When we have profile.posts, pre-check like status for each post
     useEffect(() => {
@@ -92,13 +123,7 @@ export default function ProfileView() {
         if (!id || !profile) return;
         setIsFollowActionLoading(true);
         try {
-            if (followStatus === 'following') {
-                // Confirm unfollow
-                if (window.confirm(`Are you sure you want to unfollow ${profile.userName}?`)) {
-                    const success = await unfollowUser(id);
-                    if (success) setFollowStatus('not_following');
-                }
-            } else if (followStatus === 'requested') {
+            if (followStatus === 'requested') {
                 // Cancel request
                 const success = await cancelFollowRequest(id);
                 if (success) setFollowStatus('not_following');
@@ -120,18 +145,94 @@ export default function ProfileView() {
         }
     };
 
+    const openList = async (type: 'followers' | 'following') => {
+        // Privacy check: 
+        // If profile is public, anyone can see.
+        // If profile is private, only followers (me) can see.
+        // `followStatus` is 'following' if I am following them.
+        const canView = profile.isProfilePublic || followStatus === 'following' || isMe;
+
+        if (!canView) {
+            alert('Acest cont este privat. Urmărește pentru a vedea informațiile.');
+            return;
+        }
+
+        setListType(type);
+        setIsListOpen(true);
+        setIsListLoading(true);
+        try {
+            let data = [];
+            if (type === 'followers') {
+                data = await getFollowers(id!);
+            } else {
+                data = await getFollowing(id!);
+            }
+            setListUsers(data);
+        } catch (error) {
+            console.error("Failed to fetch user list", error);
+        } finally {
+            setIsListLoading(false);
+        }
+    };
+
+    // Unfollow Confirmation State
+    const [isUnfollowModalOpen, setIsUnfollowModalOpen] = useState(false);
+
+    const handleUnfollowClick = async () => {
+        // If public, unfollow immediately without confirmation
+        if (profile.isProfilePublic) {
+            setIsFollowActionLoading(true);
+            try {
+                const success = await unfollowUser(id!);
+                if (success) setFollowStatus('not_following');
+            } catch (err: any) {
+                console.error('Unfollow action failed', err);
+            } finally {
+                setIsFollowActionLoading(false);
+            }
+            return;
+        }
+
+        // If private, show confirmation modal
+        setIsUnfollowModalOpen(true);
+    };
+
+    const confirmUnfollow = async () => {
+        setIsUnfollowModalOpen(false);
+        setIsFollowActionLoading(true);
+        try {
+            const success = await unfollowUser(id!);
+            if (success) setFollowStatus('not_following');
+        } catch (err: any) {
+            console.error('Unfollow action failed', err);
+            alert(`Action failed: ${err.message}`);
+        } finally {
+            setIsFollowActionLoading(false);
+        }
+    };
+
     // Render helper for the button to keep JSX clean
     function renderFollowButton() {
         if (followStatus === 'following') {
             return (
-                <button
-                    onClick={handleFollowClick}
-                    disabled={isFollowActionLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive transition-colors text-sm font-medium"
-                >
-                    {isFollowActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
-                    Following
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        disabled
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-secondary/50 text-secondary-foreground cursor-default text-sm font-medium"
+                    >
+                        <UserCheck className="h-4 w-4" />
+                        Following
+                    </button>
+                    <button
+                        onClick={handleUnfollowClick}
+                        disabled={isFollowActionLoading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-destructive/50 text-destructive hover:bg-destructive hover:text-white transition-colors text-sm font-medium"
+                        title="Unfollow"
+                    >
+                        <UserMinus className="h-4 w-4" />
+                        Unfollow
+                    </button>
+                </div>
             );
         }
         if (followStatus === 'requested') {
@@ -215,16 +316,20 @@ export default function ProfileView() {
                 <p>{profile.description || profile.bio || 'No description.'}</p>
             </div>
 
-            {extended && (
-                <div className="bg-card border border-border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">More about this user</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><strong>Followers</strong><div className="text-muted-foreground">{extended.followersCount ?? '—'}</div></div>
-                        <div><strong>Following</strong><div className="text-muted-foreground">{extended.followingCount ?? '—'}</div></div>
-                        <div className="col-span-2"><strong>Joined</strong><div className="text-muted-foreground">{extended.createdAt ? new Date(extended.createdAt).toLocaleDateString() : '—'}</div></div>
-                    </div>
+            {/* Counts Section */}
+            <div className="bg-card border border-border rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <button onClick={() => openList('followers')} className="text-left hover:opacity-75 transition-opacity">
+                        <strong>Urmăritori: </strong><span className="text-muted-foreground">{followersCount}</span>
+                    </button>
+                    <button onClick={() => openList('following')} className="text-left hover:opacity-75 transition-opacity">
+                        <strong>Urmăriri: </strong><span className="text-muted-foreground">{followingCount}</span>
+                    </button>
+                    {extended && (
+                        <div className="col-span-2"><strong>Data înscrierii: </strong><span className="text-muted-foreground">{extended.createdAt ? new Date(extended.createdAt).toLocaleDateString() : '—'}</span></div>
+                    )}
                 </div>
-            )}
+            </div>
 
             <div>
                 <h3 className="text-lg font-semibold">Posts</h3>
@@ -246,8 +351,45 @@ export default function ProfileView() {
             </div>
 
             <div className="mt-4">
-                <Link to="/" className="text-sm text-primary hover:underline">Back home</Link>
+                <Link to="/" className="text-sm text-primary hover:underline">Înapoi la prima pagină</Link>
             </div>
+
+            {/* Lists Modal */}
+            <UserListModal
+                isOpen={isListOpen}
+                onClose={() => setIsListOpen(false)}
+                title={listType === 'followers' ? 'Urmăritori' : 'Urmăriri'}
+                type={listType as any}
+                users={listUsers}
+                isLoading={isListLoading}
+            />
+
+            {/* Unfollow Confirmation Modal */}
+            {isUnfollowModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsUnfollowModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-lg bg-background p-6 shadow-xl border border-border">
+                        <h3 className="text-lg font-semibold mb-2">Dorești să dai unfollow?</h3>
+                        <p className="text-sm text-muted-foreground mb-6">
+                            Acest cont este <strong>privat</strong>. Dacă dai unfollow, va trebui să trimiți din nou o cerere și să aștepți aprobarea pentru a vedea conținutul.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsUnfollowModalOpen(false)}
+                                className="px-4 py-2 rounded-md hover:bg-muted transition-colors text-sm"
+                            >
+                                Anulează
+                            </button>
+                            <button
+                                onClick={confirmUnfollow}
+                                className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors text-sm font-medium"
+                            >
+                                Unfollow
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
