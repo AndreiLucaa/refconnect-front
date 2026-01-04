@@ -54,7 +54,7 @@ export default function UserListModal({ isOpen, onClose, title, users, type, isL
                             // Safety check
                             if (!userObj) return null;
 
-                            const displayName = userObj.firstName ? `${userObj.firstName} ${userObj.lastName}` : userObj.userName;
+                            const displayName = userObj.fullName || (userObj.firstName ? `${userObj.firstName} ${userObj.lastName}` : userObj.userName);
                             const username = userObj.userName;
                             const imageUrl = userObj.profileImageUrl;
                             const userId = userObj.id;
