@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, api } from '../context/AuthContext';
+import { normalizeAssetUrl } from '../lib/utils';
 import { UpdateUserDto } from '../types';
 import { ChevronLeft, Save } from 'lucide-react';
 
@@ -23,22 +24,7 @@ export default function EditProfile() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
    
-    const makeAbsoluteUrl = (url: string) => {
-        if (!url) return url;
-      
-        if (/^https?:\/\//i.test(url)) return url;
-        let path = url;
-        if (!path.startsWith('/')) path = '/' + path;
-        const base = api.defaults.baseURL || '';
-        let baseForAssets = base;
-        
-        if (/\/api\/?$/i.test(base)) {
-            if (/^\/api\//i.test(path) || /^\/uploads\//i.test(path)) {
-                baseForAssets = base.replace(/\/api\/?$/i, '');
-            }
-        }
-        return `${baseForAssets.replace(/\/$/, '')}${path}`;
-    };
+    
 
 
     useEffect(() => {
@@ -99,78 +85,38 @@ export default function EditProfile() {
         setIsLoading(true);
         setFormError(null);
         try {
-           
-            if (selectedFile && user?.id) {
+            // If user selected a new file, upload to S3 via Files API first
+            if (selectedFile) {
                 const fd = new FormData();
                 fd.append('file', selectedFile);
                
-                const ep = `/Users/${user.id}/profile-image`;
-                let uploadedUrl: string | null = null;
-                let lastError: any = null;
                 try {
-                    console.debug('Attempting profile upload to', ep);
-                    const upResp = await api.post(ep, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    console.log('Uploading file to /Files/upload...');
+                    const upResp = await api.post('/Files/upload', fd, { 
+                        headers: { 'Content-Type': 'multipart/form-data' } 
+                    });
                     const returned = upResp?.data;
-                    const url = returned?.profileImageUrl || returned?.url || returned?.path || returned;
-                    if (url && typeof url === 'string') {
-                        uploadedUrl = url;
-                        console.debug('Upload succeeded to', ep, 'returned', url);
-                    } else if (typeof returned === 'string' && returned.trim()) {
-                        uploadedUrl = returned;
-                        console.debug('Upload returned raw string URL from', ep, returned);
+                    // Backend returns { Url: "s3-url-here" }
+                    const s3Url = returned?.Url || returned?.url;
+                    
+                    if (s3Url && typeof s3Url === 'string') {
+                        console.log('Files.upload returned S3 URL:', s3Url);
+                        // Store the S3 URL directly - this will be saved to the database
+                        formData.profileImageUrl = s3Url;
                     } else {
-                       
-                        console.debug('Upload to', ep, 'succeeded but returned unexpected body', returned);
+                        throw new Error('No URL returned from Files/upload');
                     }
                 } catch (err: any) {
-                    lastError = err;
-                    const status = err?.response?.status;
-                    console.debug('Upload attempt failed', ep, status, err?.response?.data || err?.message || err);
-                }
-                if (!uploadedUrl && lastError) {
-                    console.error('Profile picture upload failed for all endpoints. Last error:', lastError);
-                    const serverMsg = lastError?.response?.data?.message || lastError?.response?.data || lastError?.message;
-                    setFormError(typeof serverMsg === 'string' ? serverMsg : 'Failed to upload profile picture (no matching endpoint)');
+                    console.error('File upload failed:', err);
+                    const serverMsg = err?.response?.data?.message || err?.message || 'Failed to upload file to S3';
+                    setFormError(typeof serverMsg === 'string' ? serverMsg : 'Failed to upload profile picture');
                     setIsLoading(false);
                     return;
                 }
-                if (uploadedUrl) {
-                    let finalUrl = uploadedUrl;
-                    try {
-                        if (typeof finalUrl === 'string' && finalUrl.startsWith('/')) {
-                            finalUrl = makeAbsoluteUrl(finalUrl);
-                        }
-                    } catch (e) {
-                        /* ignore */
-                    }
-                    setFormData(prev => ({ ...prev, profileImageUrl: finalUrl } as any));
-                }
             }
 
+            // Save profile with the S3 URL to database
             await updateProfile(formData);
-
-            // Refresh user record from server to pick up any server-populated profileImageUrl
-            try {
-                if (user?.id) {
-                    const fresh = await api.get(`/Users/${user.id}`);
-                    const u = fresh?.data;
-                    if (u && u.profileImageUrl) {
-                        let profileUrl = u.profileImageUrl;
-                        try {
-                            if (typeof profileUrl === 'string' && profileUrl.startsWith('/')) {
-                                profileUrl = makeAbsoluteUrl(profileUrl);
-                            }
-                        } catch (e) {
-                            /* ignore */
-                        }
-                        setFormData(prev => ({ ...prev, profileImageUrl: profileUrl } as any));
-                        // clear preview so the UI will load the server-hosted image
-                        setPreviewUrl(null);
-                    }
-                }
-            } catch (e) {
-                console.debug('Failed to refresh user after update', e);
-            }
 
             navigate('/profile');
         } catch (err: any) {
@@ -209,7 +155,7 @@ export default function EditProfile() {
                         {previewUrl ? (
                             <img src={previewUrl} alt="Avatar preview" className="h-full w-full object-cover" />
                         ) : formData.profileImageUrl ? (
-                            <img src={formData.profileImageUrl} alt="Avatar" className="h-full w-full object-cover" />
+                            <img src={normalizeAssetUrl(formData.profileImageUrl)} alt="Avatar" className="h-full w-full object-cover" />
                         ) : (
                             <span className="text-xs text-muted-foreground p-2 text-center">No Image</span>
                         )}

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { normalizeAssetUrl } from '../lib/utils';
 import { UpdateUserDto } from '../types';
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
@@ -71,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         name: updated.fullName || `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.userName || (user?.name || ''),
                         email: updated.email || user?.email || '',
                         role: (user?.role as UserRole) || 'referee',
-                        avatarUrl: updated.profileImageUrl || updated.avatarUrl || user?.avatarUrl,
+                        avatarUrl: normalizeAssetUrl(updated.profileImageUrl) || updated.avatarUrl || user?.avatarUrl,
                         bio: updated.description || user?.bio,
                         isPrivate: typeof updated.isProfilePublic === 'boolean' ? updated.isProfilePublic : user?.isPrivate,
                     };
@@ -84,10 +85,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 return resp?.data;
             } else {
                
-                const newUser: any = {
+                    const newUser: any = {
                     ...user,
                     name: `${payload.firstName} ${payload.lastName}`.trim() || payload.userName || user?.name,
-                    avatarUrl: payload.profileImageUrl || user?.avatarUrl,
+                    avatarUrl: normalizeAssetUrl(payload.profileImageUrl) || user?.avatarUrl,
                     bio: payload.description || user?.bio,
                     isPrivate: payload.isProfilePublic,
                 };
@@ -147,7 +148,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedToken = localStorage.getItem('refconnect_token');
         if (storedUser) {
             try {
-                setUser(JSON.parse(storedUser));
+                const parsed = JSON.parse(storedUser);
+                // Normalize any stored profile image paths to absolute URLs
+                if (parsed?.profileImageUrl) {
+                    try { parsed.profileImageUrl = normalizeAssetUrl(parsed.profileImageUrl); } catch (e) {}
+                }
+                if (parsed?.avatarUrl) {
+                    try { parsed.avatarUrl = normalizeAssetUrl(parsed.avatarUrl); } catch (e) {}
+                }
+                setUser(parsed);
             } catch (e) {
                 console.warn('Failed to parse stored user', e);
             }
@@ -248,6 +257,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
 
                 if (receivedUser) {
+                    // Normalize any returned profile image URL
+                    if (receivedUser.profileImageUrl) {
+                        try { receivedUser.profileImageUrl = normalizeAssetUrl(receivedUser.profileImageUrl); } catch (e) {}
+                    }
                     setUser(receivedUser);
                     try {
                         localStorage.setItem('refconnect_user', JSON.stringify(receivedUser));

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth, api } from '../context/AuthContext';
 import { usePost } from '../context/PostContext';
 import { useAIModeration } from '../hooks/useAIModeration';
-import { Image, Video, Send, AlertCircle } from 'lucide-react';
+import { Image, Video, Send, AlertCircle, X } from 'lucide-react';
 
 export default function CreatePost() {
     const { user } = useAuth();
@@ -11,6 +11,9 @@ export default function CreatePost() {
     const [content, setContent] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isRefining, setIsRefining] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     if (!user) return null;
 
@@ -19,26 +22,84 @@ export default function CreatePost() {
         if (!content.trim()) return;
 
         setError(null);
+        setIsUploading(true);
 
-        // AI Check
-        const moderationResult = await checkContent(content);
-        if (!moderationResult.safe) {
-            setError(moderationResult.reason || "Content flagged as inappropriate.");
-            return;
-        }
+        try {
+            // AI Check
+            const moderationResult = await checkContent(content);
+            if (!moderationResult.safe) {
+                setError(moderationResult.reason || "Content flagged as inappropriate.");
+                setIsUploading(false);
+                return;
+            }
 
-        // Create Post via Context
-        const newPost = await createPost({
-            description: content,
-            mediaUrl: '', // TODO: Implement file upload
-            mediaType: 'text' // TODO: Detect type
-        });
+            let mediaUrl = '';
+            let mediaType: 'text' | 'image' | 'video' = 'text';
 
-        if (newPost) {
-            setContent('');
-            // alert("Post published successfully!"); // Optional: show toast or something
-        } else {
-            setError("Failed to create post. Check console for details.");
+            // If user selected a file, upload to S3 first
+            if (selectedFile) {
+                // Check file size (30MB limit)
+                const maxSize = 30 * 1024 * 1024; // 30MB in bytes
+                if (selectedFile.size > maxSize) {
+                    setError(`File size (${(selectedFile.size / 1024 / 1024).toFixed(2)}MB) exceeds the 30MB limit. Please choose a smaller file.`);
+                    setIsUploading(false);
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('file', selectedFile);
+
+                try {
+                    console.log('Uploading media to /Files/upload...');
+                    const upResp = await api.post('/Files/upload', fd, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    const returned = upResp?.data;
+                    const s3Url = returned?.Url || returned?.url;
+
+                    if (s3Url && typeof s3Url === 'string') {
+                        console.log('Files/upload returned S3 URL:', s3Url);
+                        mediaUrl = s3Url;
+                        // Detect media type from file
+                        if (selectedFile.type.startsWith('image/')) {
+                            mediaType = 'image';
+                        } else if (selectedFile.type.startsWith('video/')) {
+                            mediaType = 'video';
+                        }
+                    } else {
+                        throw new Error('No URL returned from Files/upload');
+                    }
+                } catch (err: any) {
+                    console.error('Media upload failed:', err);
+                    console.error('Error details:', {
+                        message: err.message,
+                        response: err.response?.data,
+                        status: err.response?.status,
+                        statusText: err.response?.statusText
+                    });
+                    const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
+                    setError(`Failed to upload media: ${errorMsg}`);
+                    setIsUploading(false);
+                    return;
+                }
+            }
+
+            // Create Post via Context with S3 media URL
+            const newPost = await createPost({
+                description: content,
+                mediaUrl,
+                mediaType
+            });
+
+            if (newPost) {
+                setContent('');
+                setSelectedFile(null);
+                setPreviewUrl(null);
+            } else {
+                setError("Failed to create post. Check console for details.");
+            }
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -76,6 +137,26 @@ export default function CreatePost() {
                             onChange={(e) => setContent(e.target.value)}
                         />
 
+                        {previewUrl && (
+                            <div className="mt-3 relative rounded-lg overflow-hidden border border-border">
+                                {selectedFile?.type.startsWith('image/') ? (
+                                    <img src={previewUrl} alt="Preview" className="w-full h-auto max-h-96 object-cover" />
+                                ) : (
+                                    <video src={previewUrl} controls className="w-full h-auto max-h-96" />
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedFile(null);
+                                        setPreviewUrl(null);
+                                    }}
+                                    className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/70 rounded-full text-white"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        )}
+
                         {error && (
                             <div className="flex items-center gap-2 text-red-500 text-xs mt-2 bg-red-50 p-2 rounded">
                                 <AlertCircle className="h-3 w-3" />
@@ -91,22 +172,60 @@ export default function CreatePost() {
 
                         <div className="flex items-center justify-between mt-3 border-t border-border pt-3">
                             <div className="flex gap-2 text-muted-foreground">
-                                <button type="button" className="p-1.5 hover:bg-secondary rounded-full transition-colors">
+                                <label className="p-1.5 hover:bg-secondary rounded-full transition-colors cursor-pointer">
                                     <Image className="h-4 w-4" />
-                                </button>
-                                <button type="button" className="p-1.5 hover:bg-secondary rounded-full transition-colors">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const maxSize = 30 * 1024 * 1024; // 30MB
+                                                if (file.size > maxSize) {
+                                                    setError(`File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 30MB limit.`);
+                                                    e.target.value = ''; // Reset input
+                                                    return;
+                                                }
+                                                setError(null);
+                                                setSelectedFile(file);
+                                                setPreviewUrl(URL.createObjectURL(file));
+                                            }
+                                        }}
+                                    />
+                                </label>
+                                <label className="p-1.5 hover:bg-secondary rounded-full transition-colors cursor-pointer">
                                     <Video className="h-4 w-4" />
-                                </button>
+                                    <input
+                                        type="file"
+                                        accept="video/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const maxSize = 30 * 1024 * 1024; // 30MB
+                                                if (file.size > maxSize) {
+                                                    setError(`File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 30MB limit.`);
+                                                    e.target.value = ''; // Reset input
+                                                    return;
+                                                }
+                                                setError(null);
+                                                setSelectedFile(file);
+                                                setPreviewUrl(URL.createObjectURL(file));
+                                            }
+                                        }}
+                                    />
+                                </label>
                                 <button type="button" onClick={handleRefine} disabled={isRefining} className="p-1.5 hover:bg-secondary rounded-full transition-colors text-xs">
                                     {isRefining ? 'AI…' : 'AI'}
                                 </button>
                             </div>
                             <button
                                 type="submit"
-                                disabled={isChecking || !content.trim()}
+                                disabled={isChecking || isUploading || !content.trim()}
                                 className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-xs font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                             >
-                                {isChecking ? 'Checking...' : (
+                                {isUploading ? 'Uploading...' : isChecking ? 'Checking...' : (
                                     <>
                                         Post <Send className="h-3 w-3" />
                                     </>

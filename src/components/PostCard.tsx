@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Heart, MessageCircle, Share2, Trash2 } from 'lucide-react'; // Added Trash2
+import { MoreHorizontal, Heart, MessageCircle, Share2, Trash2, Image, Video, X } from 'lucide-react';
 import CommentsModal from './CommentsModal';
 import { Link } from 'react-router-dom';
 import { Post } from '../types';
@@ -7,6 +7,7 @@ import { usePost } from '../context/PostContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../context/AuthContext';
 import { UpdatePostDto } from '../types';
+import { normalizeAssetUrl } from '../lib/utils';
 
 interface PostProps {
     post: Post;
@@ -75,6 +76,9 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isRefining, setIsRefining] = useState(false);
+    const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+    const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -113,7 +117,7 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
                 <div className="flex items-center gap-3">
                     <Link to={`/profile/${post.userId}`} className="h-10 w-10 rounded-full bg-secondary overflow-hidden">
                         {post.user?.profileImageUrl ? (
-                            <img src={post.user.profileImageUrl} alt={authorName} className="h-full w-full object-cover" />
+                            <img src={normalizeAssetUrl(post.user.profileImageUrl)} alt={authorName} className="h-full w-full object-cover" />
                         ) : (
                             <div className="h-full w-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
                                 {authorName.charAt(0)}
@@ -145,23 +149,134 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
             <p className="mb-3 whitespace-pre-wrap">{post.description}</p>
 
             {isEditing && (
-                <form onSubmit={async (e) => { e.preventDefault(); setIsSaving(true); try { await api.put(`/posts/${post.postId}`, editData); setIsEditing(false); try { await fetchPosts(); } catch {} } catch (err) { console.error('Failed to update post', err); } finally { setIsSaving(false); } }} className="space-y-3 mb-3">
+                <form onSubmit={async (e) => { 
+                    e.preventDefault(); 
+                    setIsSaving(true); 
+                    try { 
+                        let finalEditData = { ...editData };
+                        
+                        // If user selected a new media file, upload to S3 first
+                        if (selectedMediaFile) {
+                            // Check file size (30MB limit)
+                            const maxSize = 30 * 1024 * 1024; // 30MB in bytes
+                            if (selectedMediaFile.size > maxSize) {
+                                alert(`File size (${(selectedMediaFile.size / 1024 / 1024).toFixed(2)}MB) exceeds the 30MB limit. Please choose a smaller file.`);
+                                setIsSaving(false);
+                                return;
+                            }
+
+                            setIsUploading(true);
+                            const fd = new FormData();
+                            fd.append('file', selectedMediaFile);
+                            const upResp = await api.post('/Files/upload', fd, { 
+                                headers: { 'Content-Type': 'multipart/form-data' } 
+                            });
+                            const returned = upResp?.data;
+                            const s3Url = returned?.Url || returned?.url;
+                            console.log('Files/upload returned S3 URL:', s3Url);
+                            
+                            finalEditData.mediaUrl = s3Url;
+                            finalEditData.mediaType = selectedMediaFile.type.startsWith('image/') ? 'image' : 'video';
+                            setIsUploading(false);
+                        }
+                        
+                        await api.put(`/posts/${post.postId}`, finalEditData); 
+                        setIsEditing(false); 
+                        setSelectedMediaFile(null);
+                        setMediaPreviewUrl(null);
+                        try { await fetchPosts(); } catch {} 
+                    } catch (err: any) { 
+                        console.error('Failed to update post', err);
+                        console.error('Error details:', {
+                            message: err.message,
+                            response: err.response?.data,
+                            status: err.response?.status,
+                            statusText: err.response?.statusText
+                        });
+                        setIsUploading(false);
+                    } finally { 
+                        setIsSaving(false); 
+                    } 
+                }} className="space-y-3 mb-3">
                     <div>
                         <label className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
                         <textarea value={editData.description} onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))} rows={3} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-1">Media URL</label>
-                        <input type="url" value={editData.mediaUrl} onChange={(e) => setEditData(prev => ({ ...prev, mediaUrl: e.target.value }))} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm" />
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Upload New Media</label>
+                        <div className="flex gap-2">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                id={`edit-image-${post.postId}`}
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setSelectedMediaFile(file);
+                                        setMediaPreviewUrl(URL.createObjectURL(file));
+                                    }
+                                }}
+                            />
+                            <label htmlFor={`edit-image-${post.postId}`} className="inline-flex items-center gap-2 px-3 py-2 rounded border border-input text-sm cursor-pointer hover:bg-secondary">
+                                <Image className="h-4 w-4" />
+                                Image
+                            </label>
+                            
+                            <input 
+                                type="file" 
+                                accept="video/*" 
+                                id={`edit-video-${post.postId}`}
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setSelectedMediaFile(file);
+                                        setMediaPreviewUrl(URL.createObjectURL(file));
+                                    }
+                                }}
+                            />
+                            <label htmlFor={`edit-video-${post.postId}`} className="inline-flex items-center gap-2 px-3 py-2 rounded border border-input text-sm cursor-pointer hover:bg-secondary">
+                                <Video className="h-4 w-4" />
+                                Video
+                            </label>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-1">Media Type</label>
-                        <select value={editData.mediaType} onChange={(e) => setEditData(prev => ({ ...prev, mediaType: e.target.value }))} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm">
-                            <option value="text">Text</option>
-                            <option value="image">Image</option>
-                            <option value="video">Video</option>
-                        </select>
-                    </div>
+                    
+                    {/* Preview selected media */}
+                    {mediaPreviewUrl && selectedMediaFile && (
+                        <div className="relative rounded-lg overflow-hidden border border-border">
+                            {selectedMediaFile.type.startsWith('image/') ? (
+                                <img src={mediaPreviewUrl} alt="Preview" className="w-full h-auto" />
+                            ) : (
+                                <video src={mediaPreviewUrl} controls className="w-full h-auto" />
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedMediaFile(null);
+                                    setMediaPreviewUrl(null);
+                                }}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Show current media if no new file selected */}
+                    {!mediaPreviewUrl && editData.mediaUrl && (
+                        <div>
+                            <label className="block text-sm font-medium text-muted-foreground mb-1">Current Media</label>
+                            {editData.mediaType === 'image' ? (
+                                <img src={normalizeAssetUrl(editData.mediaUrl)} alt="Current" className="w-full h-auto rounded-lg border border-border" />
+                            ) : editData.mediaType === 'video' ? (
+                                <video src={normalizeAssetUrl(editData.mediaUrl)} controls className="w-full h-auto rounded-lg border border-border" />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">No media</p>
+                            )}
+                        </div>
+                    )}
                     <div className="flex gap-2">
                         <button type="button" disabled={isRefining} onClick={async () => {
                             if (!editData.description.trim()) return;
@@ -177,7 +292,9 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
                                 setIsRefining(false);
                             }
                         }} className="px-3 py-1 rounded border text-sm">{isRefining ? 'AI…' : 'Refine'}</button>
-                        <button type="submit" disabled={isSaving} className="px-3 py-1 rounded bg-foreground text-background text-sm">{isSaving ? 'Saving...' : 'Save'}</button>
+                        <button type="submit" disabled={isSaving || isUploading} className="px-3 py-1 rounded bg-foreground text-background text-sm">
+                            {isUploading ? 'Uploading...' : isSaving ? 'Saving...' : 'Save'}
+                        </button>
                         <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1 rounded border text-sm">Cancel</button>
                     </div>
                 </form>
@@ -185,7 +302,7 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
 
             {post.mediaUrl && post.mediaType === 'image' && (
                 <div className="mb-3 rounded-lg overflow-hidden border border-border">
-                    <img src={post.mediaUrl} alt="Post content" className="w-full h-auto" />
+                    <img src={normalizeAssetUrl(post.mediaUrl)} alt="Post content" className="w-full h-auto" />
                 </div>
             )}
             {post.mediaUrl && post.mediaType === 'video' && (

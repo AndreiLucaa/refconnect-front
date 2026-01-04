@@ -3,6 +3,7 @@ import { useAuth, api } from '../context/AuthContext';
 import { User, Settings, Grid, Lock, UserPlus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PostCard from '../components/PostCard';
+import { normalizeAssetUrl } from '../lib/utils';
 import { usePost } from '../context/PostContext';
 
 export default function Profile() {
@@ -124,7 +125,7 @@ export default function Profile() {
                 <div className="relative">
                     <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-4 border-background shadow-sm">
                         {profileUser.profileImageUrl ? (
-                            <img src={profileUser.profileImageUrl} alt={displayName} className="h-full w-full object-cover" />
+                            <img src={normalizeAssetUrl(profileUser.profileImageUrl)} alt={displayName} className="h-full w-full object-cover" />
                         ) : (
                             <User className="h-12 w-12 text-muted-foreground" />
                         )}

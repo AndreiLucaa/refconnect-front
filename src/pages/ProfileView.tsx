@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, useAuth } from '../context/AuthContext';
+import { normalizeAssetUrl } from '../lib/utils';
 import PostCard from '../components/PostCard';
 import { usePost } from '../context/PostContext';
 import { useFollow } from '../context/FollowContext';
@@ -187,7 +188,7 @@ export default function ProfileView() {
             <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full overflow-hidden bg-secondary flex items-center justify-center border border-border shrink-0">
                     {profile.profileImageUrl ? (
-                        <img src={profile.profileImageUrl} alt={displayName} className="h-full w-full object-cover" />
+                        <img src={normalizeAssetUrl(profile.profileImageUrl)} alt={displayName} className="h-full w-full object-cover" />
                     ) : (
                         <div className="text-muted-foreground font-bold text-2xl">{displayName.charAt(0)}</div>
                     )}
