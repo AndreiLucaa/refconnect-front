@@ -36,7 +36,7 @@ export default function ProfileView() {
                     });
                 }
 
-                // Try extended first
+                // Try extended first, fall back to basic on any error
                 try {
                     const ext = await api.get(`/profiles/${id}/extended`);
                     if (!mounted) return;
@@ -44,17 +44,16 @@ export default function ProfileView() {
                     setProfile(ext.data);
                     return;
                 } catch (err: any) {
-                    if (err?.response?.status === 403) {
-                        // fallback to basic profile
-                        const basic = await api.get(`/profiles/${id}`);
-                        if (!mounted) return;
-                        setProfile(basic.data);
-                        return;
-                    }
-                    throw err;
+                    console.log('Extended profile failed, falling back to basic profile:', err?.response?.status);
+                    // Fallback to basic profile on any error
+                    const basic = await api.get(`/profiles/${id}`);
+                    if (!mounted) return;
+                    setProfile(basic.data);
+                    return;
                 }
             } catch (err: any) {
                 console.error('Failed to fetch profile view', err);
+                
                 if (!mounted) return;
                 setError(err?.message || 'Failed to load');
             } finally {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { usePost } from '../context/PostContext';
 import { useAuth, api } from '../context/AuthContext';
+import { useAIModeration } from '../hooks/useAIModeration';
 
 interface Props {
     open: boolean;
@@ -13,6 +14,7 @@ interface Props {
 export default function CommentsModal({ open, onClose, postId, initialComments }: Props) {
     const { addComment, deleteComment } = usePost();
     const { user } = useAuth();
+    const { checkContent } = useAIModeration();
     const [comments, setComments] = useState<any[]>(initialComments || []);
     const [loading, setLoading] = useState(false);
     const [newComment, setNewComment] = useState('');
@@ -110,6 +112,14 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
 
     const handleAdd = async () => {
         if (!newComment.trim()) return;
+        
+        // AI moderation check
+        const moderationResult = await checkContent(newComment.trim());
+        if (!moderationResult.safe) {
+            alert(moderationResult.reason || "Comment has been flagged as inappropriate.");
+            return;
+        }
+        
         try {
             const added = await addComment(postId, newComment.trim());
             if (added) {
@@ -182,6 +192,13 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
                                                 <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} rows={3} className="block w-full rounded-md border border-input px-3 py-2 text-foreground sm:text-sm" />
                                                 <div className="flex gap-2">
                                                     <button onClick={async () => {
+                                                        // AI moderation check
+                                                        const moderationResult = await checkContent(editingText.trim());
+                                                        if (!moderationResult.safe) {
+                                                            alert(moderationResult.reason || "Comment has been flagged as inappropriate.");
+                                                            return;
+                                                        }
+                                                        
                                                         try {
                                                             const updated = await updateCommentOnServer(c.commentId, editingText);
                                                             const newContent = (updated && (updated.content || updated.body || updated.text)) ? (updated.content || updated.body || updated.text) : editingText;

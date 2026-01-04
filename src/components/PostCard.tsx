@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../context/AuthContext';
 import { UpdatePostDto } from '../types';
 import { normalizeAssetUrl } from '../lib/utils';
+import { useAIModeration } from '../hooks/useAIModeration';
 
 interface PostProps {
     post: Post;
@@ -18,6 +19,7 @@ interface PostProps {
 export default function PostCard({ post, initialIsLiked, initialLikesCount }: PostProps) {
     const { user } = useAuth();
     const { likePost, unlikePost, deletePost, fetchPosts, isPostLiked } = usePost();
+    const { checkContent } = useAIModeration();
 
   
     const isLikedByMe = post.likes?.some(l => l.userId === user?.id) || false;
@@ -152,7 +154,15 @@ export default function PostCard({ post, initialIsLiked, initialLikesCount }: Po
                 <form onSubmit={async (e) => { 
                     e.preventDefault(); 
                     setIsSaving(true); 
-                    try { 
+                    try {
+                        // AI moderation check
+                        const moderationResult = await checkContent(editData.description);
+                        if (!moderationResult.safe) {
+                            alert(moderationResult.reason || "Content has been flagged as inappropriate.");
+                            setIsSaving(false);
+                            return;
+                        }
+
                         let finalEditData = { ...editData };
                         
                         // If user selected a new media file, upload to S3 first

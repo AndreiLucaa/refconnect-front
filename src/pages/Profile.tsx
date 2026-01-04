@@ -14,9 +14,9 @@ export default function Profile() {
     const { isPostLiked } = usePost();
     const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
 
-    // Fetch profile data (try extended profile like ProfileView does)
+    
     useEffect(() => {
-        // tolerate different JWT claim names: id, sub, userId
+        
         const profileId = user?.id || (user as any)?.sub || (user as any)?.userId;
         if (!profileId) {
             console.debug('Profile: no user id/sub/userId available yet, skipping fetch');
@@ -28,6 +28,7 @@ export default function Profile() {
         const fetchProfile = async () => {
             setIsLoading(true);
             try {
+                // Try extended first, fall back to basic on any error
                 try {
                     const ext = await api.get(`/profiles/${profileId}/extended`);
                     if (!mounted) return;
@@ -35,15 +36,13 @@ export default function Profile() {
                     setProfileData(ext.data);
                     return;
                 } catch (err: any) {
-                    console.debug('Profile: extended profile fetch errored', err?.response?.status, err?.response?.data);
-                    if (err?.response?.status === 403) {
-                        const basic = await api.get(`/profiles/${profileId}`);
-                        if (!mounted) return;
-                        console.debug('Profile: basic profile response', basic && basic.status, basic && basic.data);
-                        setProfileData(basic.data);
-                        return;
-                    }
-                    throw err;
+                    console.debug('Profile: extended profile fetch errored, falling back to basic:', err?.response?.status);
+                    // Fallback to basic profile on any error
+                    const basic = await api.get(`/profiles/${profileId}`);
+                    if (!mounted) return;
+                    console.debug('Profile: basic profile response', basic && basic.status, basic && basic.data);
+                    setProfileData(basic.data);
+                    return;
                 }
             } catch (err) {
                 console.error('Failed to fetch profile', err);

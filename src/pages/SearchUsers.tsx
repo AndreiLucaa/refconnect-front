@@ -14,12 +14,24 @@ export default function SearchUsers() {
         const fetchUsers = async () => {
             setIsLoading(true);
             try {
-                // Using /profiles/search?query=... based on ProfilesController
-                const targetUrl = `/profiles/search?query=${encodeURIComponent(searchTerm)}`;
+                // If no search term, fetch all profiles; otherwise search
+                const targetUrl = searchTerm 
+                    ? `/Profiles/search?query=${encodeURIComponent(searchTerm)}`
+                    : `/profiles`;
                 const response = await api.get(targetUrl);
+                
+                
+              
+                const mappedData = Array.isArray(response.data) 
+                    ? response.data.map((user: any) => ({
+                        ...user,
+                        
+                        id: user.id 
+                    }))
+                    : [];
 
                 if (Array.isArray(response.data)) {
-                    setUsers(response.data);
+                    setUsers(mappedData);
                 } else if (response.data && Array.isArray(response.data.items)) {
                     setUsers(response.data.items);
                 } else {
@@ -27,9 +39,7 @@ export default function SearchUsers() {
                 }
                 setError(null);
             } catch (err: any) {
-                console.error('Failed to search users', err);
-                // 404 might mean no results or endpoint issue, but for search it usually returns empty list.
-                // If it really errors, show message.
+                console.error('Failed to load users', err);
                 setError('Failed to load users');
             } finally {
                 setIsLoading(false);
@@ -77,8 +87,10 @@ export default function SearchUsers() {
                         <div className="text-center py-8 text-red-500">
                             {error}
                         </div>
-                    ) : filteredUsers.length > 0 ? filteredUsers.map(user => (
-                        <div key={user.userName || user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
+                    ) : filteredUsers.length > 0 ? filteredUsers.map(user => {
+                        console.log('Rendering user:', user.id, user.userName, user.fullName);
+                        return (
+                        <div key={user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
                             <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden border border-border">
                                     {user.profileImageUrl ? (
@@ -88,7 +100,7 @@ export default function SearchUsers() {
                                     )}
                                 </div>
                                 <div>
-                                    <Link to={`/profile/${user.id || user.userName}`} className="font-medium hover:underline text-sm block">
+                                    <Link to={`/profile/${user.id}`} className="font-medium hover:underline text-sm block">
                                         {user.fullName || user.userName}
                                     </Link>
                                     <span className="text-xs text-muted-foreground lowercase">{user.role || 'User'}</span>
@@ -97,11 +109,12 @@ export default function SearchUsers() {
                                     )}
                                 </div>
                             </div>
-                            <Link to={`/profile/${user.id || user.userName}`} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+                            <Link to={`/profile/${user.id}`} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
                                 <UserPlus className="h-4 w-4" />
                             </Link>
                         </div>
-                    )) : (
+                        );
+                    }) : (
                         <div className="text-center py-8 text-muted-foreground">
                             No users found.
                         </div>

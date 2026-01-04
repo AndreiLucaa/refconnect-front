@@ -301,6 +301,7 @@ export interface UpdateUserDto {
 }
 
 export interface ProfileDto {
+  id: string;
   userName?: string;
   fullName: string;
   description: string;
