@@ -11,7 +11,7 @@ export interface ApplicationUser {
   followingCount: number;
   isProfilePublic: boolean;
   createdAt: Date;
-  
+
 
   posts?: Post[];
   likeCount?: number;
@@ -133,11 +133,19 @@ export interface Like {
   post?: Post;
 }
 
-export interface LikeDto{
+
+export interface LikeDto {
   userId: string;
   postId: string;
   likedAt: Date;
 
+}
+
+export interface FollowRequestDto {
+  followRequestId: string;
+  followerId: string;
+  followingId: string;
+  requestedAt: Date;
 }
 
 

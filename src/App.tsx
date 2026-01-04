@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PostProvider } from './context/PostContext';
+import { FollowProvider } from './context/FollowContext';
 import { Layout } from './layouts/Layout';
 
 import Home from './pages/Home';
@@ -24,31 +25,33 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <PostProvider>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+          <FollowProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/profile/edit" element={<EditProfile />} />
-              <Route path="/profile/:id" element={<ProfileView />} />
-              <Route path="/profile/:id/matches" element={<ProfileMatches />} />
-              <Route path="/search" element={<SearchUsers />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/edit" element={<EditProfile />} />
+                <Route path="/profile/:id" element={<ProfileView />} />
+                <Route path="/profile/:id/matches" element={<ProfileMatches />} />
+                <Route path="/search" element={<SearchUsers />} />
 
-              <Route path="/groups" element={<Groups />} />
-              <Route path="/groups/create" element={<CreateGroup />} />
-              <Route path="/groups/:id" element={<GroupDetail />} />
+                <Route path="/groups" element={<Groups />} />
+                <Route path="/groups/create" element={<CreateGroup />} />
+                <Route path="/groups/:id" element={<GroupDetail />} />
 
-              <Route path="/matches" element={<Matches />} />
-              <Route path="/delegations" element={<Delegations />} />
+                <Route path="/matches" element={<Matches />} />
+                <Route path="/delegations" element={<Delegations />} />
 
-              <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin" element={<AdminDashboard />} />
 
-              {/* Add more routes here later */}
-              <Route path="*" element={<div className="p-8 text-center text-muted-foreground">404 - Page Not Found</div>} />
-            </Route>
-          </Routes>
+                {/* Add more routes here later */}
+                <Route path="*" element={<div className="p-8 text-center text-muted-foreground">404 - Page Not Found</div>} />
+              </Route>
+            </Routes>
+          </FollowProvider>
         </PostProvider>
       </AuthProvider>
     </BrowserRouter>
