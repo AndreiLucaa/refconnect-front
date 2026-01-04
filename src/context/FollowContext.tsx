@@ -21,7 +21,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
 
     const followUser = async (userId: string) => {
         try {
-            await api.post(`/FollowRequests`, { receiverId: userId });
+            await api.post(`/FollowRequests`, { FollowingId: userId });
             return true;
         } catch (error) {
             console.error('Failed to follow user', error);
@@ -31,7 +31,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
 
     const sendFollowRequest = async (userId: string) => {
         try {
-            await api.post(`/FollowRequests`, { receiverId: userId });
+            await api.post(`/FollowRequests`, { FollowingId: userId });
             return true;
         } catch (error) {
             console.error('Failed to send follow request', error);
