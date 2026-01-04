@@ -8,8 +8,8 @@ interface FollowContextType {
     unfollowUser: (userId: string) => Promise<boolean>;
     cancelFollowRequest: (userId: string) => Promise<boolean>;
     checkFollowStatus: (userId: string) => Promise<'following' | 'requested' | 'not_following'>;
-    acceptFollowRequest: (requesterId: string) => Promise<boolean>;
-    rejectFollowRequest: (requesterId: string) => Promise<boolean>;
+    acceptFollowRequest: (requesterId: string, followRequestId?: string) => Promise<boolean>;
+    rejectFollowRequest: (requesterId: string, followRequestId?: string) => Promise<boolean>;
     getFollowers: (userId: string) => Promise<Follow[]>;
     getFollowing: (userId: string) => Promise<Follow[]>;
     getPendingRequests: () => Promise<FollowRequestDto[]>;
@@ -20,9 +20,36 @@ const FollowContext = createContext<FollowContextType | undefined>(undefined);
 export const FollowProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
 
+    const checkFollowStatus = async (userId: string): Promise<'following' | 'requested' | 'not_following'> => {
+        if (!user) return 'not_following';
+        try {
+            // Backend does not export a specific status endpoint. 
+            // We check our 'following' list (people I follow).
+            // We assume getFollowing works (from another controller perhaps).
+            const followingList = await getFollowing(user.id);
+            const isFollowing = followingList.some(f => f.followingId === userId || f.following?.id === userId);
+
+            if (isFollowing) return 'following';
+
+            // We cannot easily check 'requested' without a GetSentRequests endpoint.
+            // If the UI tracks it, good. If not, we might report 'not_following'.
+            // However, we can try to rely on local state if we just sent it?
+            // For now, return 'not_following' to be safe, or we could potentially check pending REQUESTS (incoming) 
+            // but we need OUTGOING requests to know if *I* requested *THEM*.
+            // Since we don't have that endpoint, 'not_following' is the only safe fallback unless we store state.
+            return 'not_following';
+        } catch (error) {
+            console.warn('Failed to deduce follow status', error);
+            return 'not_following';
+        }
+    };
+
     const followUser = async (userId: string) => {
         if (!user) return false;
         try {
+            // POST api/Follows [FromBody] Follow
+            // Follow entity usually needs: FollowerId, FollowingId, FollowedAt.
+            // We follow strict casing if backend expects capitalized, but usually JS is camelCase -> C# PascalCase mapping.
             await api.post(`/Follows`, {
                 followerId: user.id,
                 followingId: userId,
@@ -38,11 +65,10 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     const sendFollowRequest = async (userId: string) => {
         if (!user) return false;
         try {
-            // Backend requires full DTO even if it ignores some fields or re-validates them
-            // Using a temporary ID since the backend likely generates the real one or DB handles it,
-            // but the DTO requires a string.
+            // POST api/FollowRequests [FromBody] FollowRequestDto
+            // [Required]: FollowRequestId, FollowerId, FollowingId, RequestedAt
             const payload: FollowRequestDto = {
-                followRequestId: crypto.randomUUID ? crypto.randomUUID() : 'temp-id-' + Date.now(),
+                followRequestId: crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now(),
                 followerId: user.id,
                 followingId: userId,
                 requestedAt: new Date()
@@ -58,11 +84,12 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     const unfollowUser = async (userId: string) => {
         if (!user) return false;
         try {
-            // DELETE with body requires "data" property in axios config
+            // DELETE api/Follows [FromBody] Follow
             await api.delete(`/Follows`, {
                 data: {
                     followerId: user.id,
-                    followingId: userId
+                    followingId: userId,
+                    followedAt: new Date().toISOString()
                 }
             });
             return true;
@@ -75,9 +102,9 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     const cancelFollowRequest = async (userId: string) => {
         if (!user) return false;
         try {
-            // FollowRequestDto logic for cancellation
+            // DELETE api/FollowRequests [FromBody] FollowRequestDto
             const payload: FollowRequestDto = {
-                followRequestId: '', // Not needed for identification by logic (follower+following)
+                followRequestId: crypto.randomUUID ? crypto.randomUUID() : 'cancel-' + Date.now(), // ID required by DTO even for delete? Usually yes for validation
                 followerId: user.id,
                 followingId: userId,
                 requestedAt: new Date()
@@ -92,34 +119,13 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const checkFollowStatus = async (userId: string): Promise<'following' | 'requested' | 'not_following'> => {
-        // This endpoint logic depends on existence. Assuming /follow/status/{id} exists or implemented similar logic
-        try {
-            // We can check local arrays or specific endpoint. 
-            // If the backend didn't mention a status endpoint, we might have to deduce it from getFollowing/getPending
-            // But sticking to previous layout which assumed an endpoint or we can assume it returns 404 if not found.
-            // However, to be safe and consistent with the user Request,
-            // The user mostly provided Create/Delete endpoints.
-            // Let's assume there's a way to check. For now keeping existing implementation but aware it might 404.
-            const response = await api.get<{ status: 'following' | 'requested' | 'not_following' }>(`/follow/status/${userId}`);
-            return response.data.status;
-        } catch (error) {
-            // Fallback: This might fail if endpoint doesn't exist.
-            // As a quick fix for "connecting backend", we might rely on the specific endpoints provided.
-            // But checking status requires reading.
-            // Let's leave this as is for now, or implement a check via getFollowing lists if possible?
-            // "GetPendingFollowRequests" is available.
-            console.warn('Failed to check follow status, defaulting to not_following', error);
-            return 'not_following';
-        }
-    };
-
-    const acceptFollowRequest = async (requesterId: string) => {
+    const acceptFollowRequest = async (requesterId: string, followRequestId?: string) => {
         if (!user) return false;
         try {
-            // For accept/decline, the "following" is ME (user.id), "follower" is requesterId
+            // POST api/FollowRequests/Accept [FromBody] FollowRequestDto
+            // Requester is the Follower. I am the Following.
             const payload: FollowRequestDto = {
-                followRequestId: '',
+                followRequestId: followRequestId || (crypto.randomUUID ? crypto.randomUUID() : 'accept-' + Date.now()),
                 followerId: requesterId,
                 followingId: user.id,
                 requestedAt: new Date()
@@ -132,11 +138,12 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const rejectFollowRequest = async (requesterId: string) => {
+    const rejectFollowRequest = async (requesterId: string, followRequestId?: string) => {
         if (!user) return false;
         try {
+            // POST api/FollowRequests/Decline [FromBody] FollowRequestDto
             const payload: FollowRequestDto = {
-                followRequestId: '',
+                followRequestId: followRequestId || (crypto.randomUUID ? crypto.randomUUID() : 'reject-' + Date.now()),
                 followerId: requesterId,
                 followingId: user.id,
                 requestedAt: new Date()

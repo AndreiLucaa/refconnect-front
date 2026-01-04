@@ -45,9 +45,6 @@ function App() {
 
                 <Route path="/matches" element={<Matches />} />
                 <Route path="/delegations" element={<Delegations />} />
-
-                <Route path="/delegations" element={<Delegations />} />
-
                 <Route path="/notifications" element={<Notifications />} />
 
                 <Route path="/admin" element={<AdminDashboard />} />

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, api } from '../context/AuthContext';
-import { useFollow } from '../context/FollowContext';
 import { User, Settings, Grid, Lock, UserPlus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PostCard from '../components/PostCard';
 import { normalizeAssetUrl } from '../lib/utils';
 import { usePost } from '../context/PostContext';
+import { useFollow } from '../context/FollowContext';
 import UserListModal from '../components/UserListModal';
 
 export default function Profile() {
@@ -95,10 +95,8 @@ export default function Profile() {
     const displayName = profileData
         ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || profileData.userName
         : user?.name || 'Visitor';
-
     // List Modal State
-    const { getFollowers, getFollowing } = useFollow(); // Need to import these from useFollow hook (ensure they are exported)
-    // Note: defined in FollowContext but need to make sure imported in top.
+    const { getFollowers, getFollowing } = useFollow();
 
     const [isListOpen, setIsListOpen] = useState(false);
     const [listType, setListType] = useState<'followers' | 'following'>('followers');
@@ -144,6 +142,7 @@ export default function Profile() {
                     <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
                         <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
                     </div>
+                    <p className="mt-2 text-sm text-muted-foreground">Loading profile...</p>
                 </div>
             </div>
         );
@@ -176,15 +175,15 @@ export default function Profile() {
                 <div className="flex gap-4 text-sm w-full justify-center">
                     <div className="flex flex-col items-center">
                         <span className="font-bold">{profileData?.posts?.length ?? '—'}</span>
-                        <span className="text-muted-foreground">Posts</span>
+                        <span className="text-muted-foreground">Postări</span>
                     </div>
                     <button onClick={() => openList('followers')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
                         <span className="font-bold">{profileData?.followersCount ?? '—'}</span>
-                        <span className="text-muted-foreground">Followers</span>
+                        <span className="text-muted-foreground">Urmăritori</span>
                     </button>
                     <button onClick={() => openList('following')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
                         <span className="font-bold">{profileData?.followingCount ?? '—'}</span>
-                        <span className="text-muted-foreground">Following</span>
+                        <span className="text-muted-foreground">Urmăriri</span>
                     </button>
                 </div>
 
@@ -247,18 +246,14 @@ export default function Profile() {
             </div>
 
             {/* Lists Modal */}
-            <React.Suspense fallback={null}>
-                {isListOpen && (
-                    <UserListModal
-                        isOpen={isListOpen}
-                        onClose={() => setIsListOpen(false)}
-                        title={listType === 'followers' ? 'Followers' : 'Following'}
-                        type={listType as any}
-                        users={listUsers}
-                        isLoading={isListLoading}
-                    />
-                )}
-            </React.Suspense>
+            <UserListModal
+                isOpen={isListOpen}
+                onClose={() => setIsListOpen(false)}
+                title={listType === 'followers' ? 'Urmăritori' : 'Urmăriri'}
+                type={listType as any}
+                users={listUsers}
+                isLoading={isListLoading}
+            />
         </div>
     );
 }

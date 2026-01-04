@@ -30,15 +30,16 @@ export default function Notifications() {
         return () => { mounted = false; };
     }, [getPendingRequests]);
 
-    const handleAccept = async (requesterId: string) => {
-        const success = await acceptFollowRequest(requesterId);
+    const handleAccept = async (requesterId: string, requestId?: string) => {
+        // Must pass requestId to satisfy strict backend DTO [Required]
+        const success = await acceptFollowRequest(requesterId, requestId);
         if (success) {
             setRequests(prev => prev.filter(r => r.followerId !== requesterId));
         }
     };
 
-    const handleReject = async (requesterId: string) => {
-        const success = await rejectFollowRequest(requesterId);
+    const handleReject = async (requesterId: string, requestId?: string) => {
+        const success = await rejectFollowRequest(requesterId, requestId);
         if (success) {
             setRequests(prev => prev.filter(r => r.followerId !== requesterId));
         }
@@ -55,38 +56,44 @@ export default function Notifications() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-2xl mx-auto space-y-6 p-4">
             <div className="flex items-center gap-3 border-b border-border pb-4">
                 <Bell className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">Notifications</h1>
+                <h1 className="text-2xl font-bold">Notificări</h1>
             </div>
 
             <div className="space-y-6">
                 <div>
-                    <h2 className="font-semibold text-lg mb-4">Follow Requests</h2>
+                    <h2 className="font-semibold text-lg mb-4">Cereri de urmărire</h2>
                     {requests.length === 0 ? (
                         <div className="text-muted-foreground italic text-sm py-4 bg-card rounded-lg border border-border px-4">
-                            No pending requests.
+                            Nu ai cereri noi.
                         </div>
                     ) : (
                         <div className="space-y-3">
                             {requests.map(req => {
-                                // Request object usually has `followerRequest` which is the User object, or we use `followerId` to fetch?
-                                // Assuming the DTO has hydrated user info or we are limited.
-                                // The `FollowRequestDto` in types.ts DOES NOT have the nested user object clearly defined in standard DTO,
-                                // BUT `FollowRequest` interface does. 
-                                // Let's check safely. If no user object, we might display ID or fetch?
-                                // Based on previous `UserListModal` logic, we hope the backend sends expanded data or we might need to fetch profile.
-                                // To be safe: checks for `followerRequest` object (from type `FollowRequest`). 
+                                // Extract user info. 
+                                // DTO: FollowRequestDto { followRequestId, followerId, followingId, requestedAt }
+                                // It MIGHT NOT have the user object expanded depending on backend JSON serialization settings.
+                                // If backend only returns DTO fields, we only have IDs. 
+                                // We might need to fetch user profile OR assume backend expands `Follower` navigation property if it exists.
+                                // The User's controller code returns `Ok(requests)`. `requests` comes from `_followRequestService.GetPendingFollowRequestsAsync`.
+                                // Let's hope it includes the User object. If not, we show generic info or just ID?
+                                // Best effort: Check for `followerRequest` or `follower` property.
 
-                                const u = (req as any).followerRequest || (req as any).follower;
-                                const displayName = u ? (u.firstName ? `${u.firstName} ${u.lastName}` : u.userName) : 'Unknown User';
-                                const username = u?.userName || 'unknown';
+                                const u = (req as any).followerRequest || (req as any).follower || (req as any).user;
+                                // Fallback if no user object: Just display "User {id}" or similar?
+                                // That would be bad UI. 
+                                // Let's try to rely on what was there before or hope for expansion.
+
+                                const displayName = u ? (u.firstName ? `${u.firstName} ${u.lastName}` : u.userName) : `Utilizator`;
+                                const username = u?.userName || 'utilizator';
                                 const imageUrl = u?.profileImageUrl;
                                 const requesterId = req.followerId;
+                                const requestId = req.followRequestId;
 
                                 return (
-                                    <div key={req.followRequestId || requesterId} className="flex items-center justify-between p-4 bg-card rounded-lg border border-border shadow-sm">
+                                    <div key={requestId || requesterId} className="flex items-center justify-between p-4 bg-card rounded-lg border border-border shadow-sm">
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <Link to={`/profile/${requesterId}`} className="shrink-0">
                                                 <div className="h-12 w-12 rounded-full bg-secondary overflow-hidden border border-border">
@@ -103,22 +110,22 @@ export default function Notifications() {
                                                 <Link to={`/profile/${requesterId}`} className="font-semibold hover:underline truncate block">
                                                     {displayName}
                                                 </Link>
-                                                <div className="text-sm text-muted-foreground truncate">@{username} wants to follow you</div>
+                                                <div className="text-sm text-muted-foreground truncate">@{username} vrea să te urmărească</div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0 ml-2">
                                             <button
-                                                onClick={() => handleAccept(requesterId)}
+                                                onClick={() => handleAccept(requesterId, requestId)}
                                                 className="p-2 bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity"
-                                                title="Accept"
+                                                title="Acceptă"
                                             >
                                                 <Check className="h-4 w-4" />
                                             </button>
                                             <button
-                                                onClick={() => handleReject(requesterId)}
+                                                onClick={() => handleReject(requesterId, requestId)}
                                                 className="p-2 bg-secondary text-secondary-foreground rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
-                                                title="Decline"
+                                                title="Refuză"
                                             >
                                                 <X className="h-4 w-4" />
                                             </button>
@@ -129,13 +136,6 @@ export default function Notifications() {
                         </div>
                     )}
                 </div>
-
-                {/* Placeholder for Recent Activity if backend supports it later */}
-                {/* 
-                <div>
-                     <h2 className="font-semibold text-lg mb-4 text-muted-foreground">Recent Activity</h2>
-                </div> 
-                */}
             </div>
         </div>
     );

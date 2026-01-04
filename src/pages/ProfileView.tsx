@@ -174,7 +174,7 @@ export default function ProfileView() {
         const canView = profile.isProfilePublic || followStatus === 'following' || isMe;
 
         if (!canView) {
-            alert('This account is private. Follow to see their connections.');
+            alert('Acest cont este privat. Urmărește pentru a vedea informațiile.');
             return;
         }
 
@@ -258,12 +258,12 @@ export default function ProfileView() {
                     <h3 className="font-semibold mb-2">More about this user</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <button onClick={() => openList('followers')} className="text-left hover:opacity-75 transition-opacity">
-                            <strong>Followers</strong><div className="text-muted-foreground">{extended.followersCount ?? '—'}</div>
+                            <strong>Urmăritori: </strong><span className="text-muted-foreground">{extended.followersCount ?? '—'}</span>
                         </button>
                         <button onClick={() => openList('following')} className="text-left hover:opacity-75 transition-opacity">
-                            <strong>Following</strong><div className="text-muted-foreground">{extended.followingCount ?? '—'}</div>
+                            <strong>Urmăriri: </strong><span className="text-muted-foreground">{extended.followingCount ?? '—'}</span>
                         </button>
-                        <div className="col-span-2"><strong>Joined</strong><div className="text-muted-foreground">{extended.createdAt ? new Date(extended.createdAt).toLocaleDateString() : '—'}</div></div>
+                        <div className="col-span-2"><strong>Data înscrierii: </strong><span className="text-muted-foreground">{extended.createdAt ? new Date(extended.createdAt).toLocaleDateString() : '—'}</span></div>
                     </div>
                 </div>
             )}
@@ -278,7 +278,7 @@ export default function ProfileView() {
                     </div>
                 ) : (
                     <div className="p-4 text-muted-foreground border border-dashed border-border rounded-lg text-center py-8">
-                        {profile.isProfilePublic || followStatus === 'following' || isMe ? "No posts yet." : "This account is private. Follow to see their posts."}
+                        {profile.isProfilePublic || followStatus === 'following' ? "No posts yet." : "This account is private. Follow to see their posts."}
                     </div>
                 )}
             </div>
@@ -288,22 +288,18 @@ export default function ProfileView() {
             </div>
 
             <div className="mt-4">
-                <Link to="/" className="text-sm text-primary hover:underline">Back home</Link>
+                <Link to="/" className="text-sm text-primary hover:underline">Înapoi la prima pagină</Link>
             </div>
 
             {/* Lists Modal */}
-            <React.Suspense fallback={null}>
-                {isListOpen && (
-                    <UserListModal
-                        isOpen={isListOpen}
-                        onClose={() => setIsListOpen(false)}
-                        title={listType === 'followers' ? 'Followers' : 'Following'}
-                        type={listType as any}
-                        users={listUsers}
-                        isLoading={isListLoading}
-                    />
-                )}
-            </React.Suspense>
+            <UserListModal
+                isOpen={isListOpen}
+                onClose={() => setIsListOpen(false)}
+                title={listType === 'followers' ? 'Urmăritori' : 'Urmăriri'}
+                type={listType as any}
+                users={listUsers}
+                isLoading={isListLoading}
+            />
         </div>
     );
 }

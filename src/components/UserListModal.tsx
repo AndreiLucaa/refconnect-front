@@ -1,7 +1,8 @@
-import React from 'react';
-import { X, User, Check, X as XIcon } from 'lucide-react';
-import { normalizeAssetUrl } from '../lib/utils';
+import React, { useState } from 'react';
+import { User, Check, X, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { normalizeAssetUrl, cn } from '../lib/utils';
+import { useFollow } from '../context/FollowContext';
 
 interface UserListModalProps {
     isOpen: boolean;
@@ -9,95 +10,78 @@ interface UserListModalProps {
     title: string;
     users: any[];
     type: 'followers' | 'following' | 'requests';
-    onAccept?: (id: string) => void;
-    onReject?: (id: string) => void;
-    onRemove?: (id: string) => void;
-    isLoading?: boolean;
+    isLoading: boolean;
 }
 
-export default function UserListModal({
-    isOpen,
-    onClose,
-    title,
-    users,
-    type,
-    onAccept,
-    onReject,
-    onRemove,
-    isLoading
-}: UserListModalProps) {
+export default function UserListModal({ isOpen, onClose, title, users, type, isLoading }: UserListModalProps) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-background w-full max-w-md rounded-lg shadow-lg border border-border flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between p-4 border-b border-border">
-                    <h2 className="font-semibold text-lg">{title}</h2>
-                    <button onClick={onClose} className="p-1 hover:bg-secondary rounded-full transition-colors">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-card w-full max-w-md rounded-xl shadow-lg border border-border overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">{title}</h3>
+                    <button onClick={onClose} className="p-1 hover:bg-muted rounded-full">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {isLoading ? (
-                        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                            <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                            <p>Loading users...</p>
+                        </div>
                     ) : users.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">No users found.</div>
+                        <div className="text-center py-8 text-muted-foreground">
+                            <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>No users found.</p>
+                        </div>
                     ) : (
-                        users.map((user) => {
-                            // Handle different DTO shapes. 
-                            // Generic UserDto or FollowRequestDto might be passed.
-                            // For Follow/Following lists, the shape is usually { follower: User, following: User } or just User
-                            // For Requests, it might be { followerRequest: User, ... }
-                            // Let's normalize inside the loop casually or expect the parent to map it?
-                            // Better: Parent should pass a normalized list of { id, name, username, image, ... } OR we handle "user" object here.
-                            // Given the codebase, let's assume the passed `users` array contains objects that HAVE a user property or ARE the user.
+                        users.map((item, index) => {
+                            // Extract user object. Backend might return different structures.
+                            // For 'followers': item.follower (the user following me)
+                            // For 'following': item.following (the user I am following)
+                            // For 'requests': item.followerRequest (the user requesting)
+                            // Or sometimes just the User object if flattened.
 
-                            const validUser = user.follower || user.following || user.followerRequest || user;
-                            const userId = validUser.id || validUser.userId;
-                            const displayName = validUser.firstName ? `${validUser.firstName} ${validUser.lastName}` : validUser.userName;
-                            const username = validUser.userName;
-                            const imageUrl = validUser.profileImageUrl;
+                            const userObj =
+                                (type === 'followers' ? item.follower : null) ||
+                                (type === 'following' ? item.following : null) ||
+                                (type === 'requests' ? item.followerRequest : null) ||
+                                item;
+
+                            // Safety check
+                            if (!userObj) return null;
+
+                            const displayName = userObj.firstName ? `${userObj.firstName} ${userObj.lastName}` : userObj.userName;
+                            const username = userObj.userName;
+                            const imageUrl = userObj.profileImageUrl;
+                            const userId = userObj.id;
 
                             return (
-                                <div key={userId} className="flex items-center justify-between gap-3">
-                                    <Link to={`/profile/${userId}`} onClick={onClose} className="flex items-center gap-3 flex-1 min-w-0">
-                                        <div className="h-10 w-10 rounded-full bg-secondary overflow-hidden shrink-0 border border-border">
-                                            {imageUrl ? (
-                                                <img src={normalizeAssetUrl(imageUrl)} alt={displayName} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <div className="h-full w-full flex items-center justify-center">
-                                                    <User className="h-5 w-5 text-muted-foreground" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="truncate">
-                                            <div className="font-medium text-sm truncate">{displayName}</div>
+                                <div key={userId || index} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <Link to={`/profile/${userId}`} onClick={onClose} className="shrink-0">
+                                            <div className="h-10 w-10 rounded-full bg-secondary overflow-hidden">
+                                                {imageUrl ? (
+                                                    <img src={normalizeAssetUrl(imageUrl)} alt={displayName} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="h-full w-full flex items-center justify-center">
+                                                        <User className="h-5 w-5 text-muted-foreground" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Link>
+                                        <div className="min-w-0">
+                                            <Link to={`/profile/${userId}`} onClick={onClose} className="font-medium hover:underline truncate block">
+                                                {displayName}
+                                            </Link>
                                             <div className="text-xs text-muted-foreground truncate">@{username}</div>
                                         </div>
-                                    </Link>
-
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {type === 'requests' && onAccept && onReject && (
-                                            <>
-                                                <button
-                                                    onClick={() => onAccept(userId)}
-                                                    className="p-2 bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity"
-                                                    title="Accept"
-                                                >
-                                                    <Check className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => onReject(userId)}
-                                                    className="p-2 bg-secondary text-secondary-foreground rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
-                                                    title="Decline"
-                                                >
-                                                    <XIcon className="h-4 w-4" />
-                                                </button>
-                                            </>
-                                        )}
-                                        {/* Future extensibility: Remove follower button */}
                                     </div>
+
+                                    {/* Action buttons could go here if needed (e.g. remove follower) */}
                                 </div>
                             );
                         })
