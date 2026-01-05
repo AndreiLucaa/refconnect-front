@@ -3,7 +3,7 @@ import { useAuth, api } from '../context/AuthContext';
 import { useMatch } from '../context/MatchContext';
 import { ClipboardList, UserPlus, Check, X, Shield, Calendar, MapPin, Loader2, Trash2 } from 'lucide-react';
 import { MatchDto, MatchAssignmentDto, UserDto } from '../types';
-import { normalizeAssetUrl } from '../lib/utils';
+import { normalizeAssetUrl, isUserActive } from '../lib/utils';
 
 export default function Delegations() {
     const { user } = useAuth();
@@ -110,6 +110,7 @@ export default function Delegations() {
 
     // Helper to filter users in modal
     const filteredUsers = availableUsers.filter(u => {
+        if (!isUserActive(u)) return false;
         const q = searchQuery.toLowerCase();
         const name = (u.fullName || u.userName || '').toLowerCase();
         return name.includes(q);

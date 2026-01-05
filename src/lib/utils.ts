@@ -31,3 +31,18 @@ export function normalizeAssetUrl(url?: string | null) {
     console.log('normalizeAssetUrl: converted relative URL:', url, '→', result);
     return result;
 }
+
+export function isUserActive(user: any): boolean {
+    if (!user) return false;
+    const userName = (user.userName || user.username || '').toLowerCase();
+    const firstName = (user.firstName || '').toLowerCase();
+    const lastName = (user.lastName || '').toLowerCase();
+
+    // Check if username starts with 'deleted_'
+    if (userName.startsWith('deleted_')) return false;
+
+    // Check if name is exactly 'Deleted User' (backend convention)
+    if (firstName === 'deleted' && lastName === 'user') return false;
+
+    return true;
+}

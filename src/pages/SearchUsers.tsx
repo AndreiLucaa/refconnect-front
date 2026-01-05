@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search as SearchIcon, UserPlus, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../context/AuthContext';
+import { isUserActive, normalizeAssetUrl } from '../lib/utils';
 
 export default function SearchUsers() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -15,18 +16,18 @@ export default function SearchUsers() {
             setIsLoading(true);
             try {
                 // If no search term, fetch all profiles; otherwise search
-                const targetUrl = searchTerm 
+                const targetUrl = searchTerm
                     ? `/Profiles/search?query=${encodeURIComponent(searchTerm)}`
                     : `/profiles`;
                 const response = await api.get(targetUrl);
-                
-                
-              
-                const mappedData = Array.isArray(response.data) 
+
+
+
+                const mappedData = Array.isArray(response.data)
                     ? response.data.map((user: any) => ({
                         ...user,
-                        
-                        id: user.id 
+
+                        id: user.id
                     }))
                     : [];
 
@@ -54,8 +55,8 @@ export default function SearchUsers() {
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 
-    // Since we do server side search, filteredUsers is just users
-    const filteredUsers = users;
+    // Filter deleted users
+    const filteredUsers = users.filter(isUserActive);
 
     return (
         <div className="space-y-6">
@@ -90,29 +91,29 @@ export default function SearchUsers() {
                     ) : filteredUsers.length > 0 ? filteredUsers.map(user => {
                         console.log('Rendering user:', user.id, user.userName, user.fullName);
                         return (
-                        <div key={user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden border border-border">
-                                    {user.profileImageUrl ? (
-                                        <img src={user.profileImageUrl} alt={user.userName} className="h-full w-full object-cover" />
-                                    ) : (
-                                        <User className="h-5 w-5 text-muted-foreground" />
-                                    )}
+                            <div key={user.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden border border-border">
+                                        {user.profileImageUrl ? (
+                                            <img src={user.profileImageUrl} alt={user.userName} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <User className="h-5 w-5 text-muted-foreground" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <Link to={`/profile/${user.id}`} className="font-medium hover:underline text-sm block">
+                                            {user.fullName || user.userName}
+                                        </Link>
+                                        <span className="text-xs text-muted-foreground lowercase">{user.role || 'User'}</span>
+                                        {user.description && (
+                                            <p className="text-xs text-muted-foreground line-clamp-1">{user.description}</p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div>
-                                    <Link to={`/profile/${user.id}`} className="font-medium hover:underline text-sm block">
-                                        {user.fullName || user.userName}
-                                    </Link>
-                                    <span className="text-xs text-muted-foreground lowercase">{user.role || 'User'}</span>
-                                    {user.description && (
-                                        <p className="text-xs text-muted-foreground line-clamp-1">{user.description}</p>
-                                    )}
-                                </div>
+                                <Link to={`/profile/${user.id}`} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+                                    <UserPlus className="h-4 w-4" />
+                                </Link>
                             </div>
-                            <Link to={`/profile/${user.id}`} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
-                                <UserPlus className="h-4 w-4" />
-                            </Link>
-                        </div>
                         );
                     }) : (
                         <div className="text-center py-8 text-muted-foreground">

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, useAuth } from '../context/AuthContext';
-import { normalizeAssetUrl } from '../lib/utils';
+import { normalizeAssetUrl, isUserActive } from '../lib/utils';
 import PostCard from '../components/PostCard';
 import { usePost } from '../context/PostContext';
 import { useFollow } from '../context/FollowContext';
@@ -309,7 +309,11 @@ export default function ProfileView() {
                 {/* Follow Action Button */}
                 {!isMe && (
                     <div>
-                        {followStatus === 'loading' ? (
+                        {!isUserActive(profile) ? (
+                            <button disabled className="px-4 py-2 rounded-full bg-destructive/10 text-destructive cursor-not-allowed font-medium text-sm border border-destructive/20">
+                                Utilizatorul a fost șters
+                            </button>
+                        ) : followStatus === 'loading' ? (
                             <button disabled className="px-4 py-2 rounded-full bg-secondary text-secondary-foreground opacity-50 cursor-wait">
                                 ...
                             </button>
