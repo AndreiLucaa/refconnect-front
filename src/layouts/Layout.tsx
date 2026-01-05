@@ -34,8 +34,8 @@ export const Layout = () => {
                             <Link to="/matches" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/matches') ? "text-primary" : "text-muted-foreground")}>Meciuri</Link>
                             <Link to="/delegations" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/delegations') ? "text-primary" : "text-muted-foreground")}>Delegări</Link>
                             <Link to="/groups" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/groups') ? "text-primary" : "text-muted-foreground")}>Grupuri</Link>
-                             <Link to="/notifications" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/notifications') ? "text-primary" : "text-muted-foreground")}>Notificări</Link>
-                                <Link to="/chats" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/chats') ? "text-primary" : "text-muted-foreground")}>Mesaje</Link>
+                            <Link to="/notifications" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/notifications') ? "text-primary" : "text-muted-foreground")}>Notificări</Link>
+                            <Link to="/chats" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/chats') ? "text-primary" : "text-muted-foreground")}>Mesaje</Link>
                         </>
                     )}
                     {isAdmin && (
@@ -49,7 +49,7 @@ export const Layout = () => {
                             <Link to="/profile" className="flex items-center gap-2">
                                 <span className="text-sm font-medium hidden md:block">{user.name}</span>
                                 <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                                    {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} /> : <User className="h-4 w-4" />}
+                                    {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" /> : <User className="h-4 w-4" />}
                                 </div>
                             </Link>
                             <button

@@ -55,12 +55,20 @@ export default function ProfileView() {
                     setProfile(ext.data);
                     return;
                 } catch (err: any) {
-                    console.log('Extended profile failed, falling back to basic profile:', err?.response?.status);
+                    // 403 Forbidden is expected for private profiles when not following
+                    if (err?.response?.status !== 403) {
+                        console.log('Extended profile failed, falling back to basic profile:', err?.response?.status);
+                    }
                     // Fallback to basic profile on any error
-                    const basic = await api.get(`/profiles/${id}`);
-                    if (!mounted) return;
-                    setProfile(basic.data);
-                    return;
+                    try {
+                        const basic = await api.get(`/profiles/${id}`);
+                        if (!mounted) return;
+                        setProfile(basic.data);
+                        return;
+                    } catch (basicErr: any) {
+                        console.error('Basic profile fetch also failed', basicErr);
+                        throw basicErr;
+                    }
                 }
             } catch (err: any) {
                 console.error('Failed to fetch profile view', err);

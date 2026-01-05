@@ -264,13 +264,21 @@ function MatchCard({ match, assignments, isAdmin, onDelegate, onRemoveDelegation
 
                 <div className="flex flex-wrap gap-2">
                     {assignments.length > 0 ? assignments.map((assign, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-secondary rounded-full pl-3 pr-2 py-1 text-sm group">
-                            <Shield className="h-3 w-3 text-muted-foreground" />
-                            <span>{assign.user?.firstName || assign.userId}</span>
+                        <div key={idx} className="flex items-center gap-2 bg-secondary rounded-full pl-1 pr-3 py-1 text-sm group border border-border">
+                            <div className="h-6 w-6 rounded-full bg-background flex items-center justify-center overflow-hidden border border-border/50">
+                                {assign.user?.profileImageUrl ? (
+                                    <img src={normalizeAssetUrl(assign.user.profileImageUrl)} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary text-[10px] font-bold">
+                                        {(assign.user?.firstName?.[0] || assign.user?.userName?.[0] || '?').toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+                            <span className="font-medium">{assign.user?.fullName || assign.user?.userName || 'User'}</span>
                             {isAdmin && onRemoveDelegation && (
                                 <button
                                     onClick={() => onRemoveDelegation(assign.matchAssignmentId)}
-                                    className="ml-1 p-0.5 rounded-full hover:bg-red-100 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity"
+                                    className="p-1 rounded-full hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                     title="Șterge delegarea"
                                 >
                                     <Trash2 className="h-3 w-3" />
