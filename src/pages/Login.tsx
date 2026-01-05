@@ -25,11 +25,9 @@ export default function Login() {
 
     return (
         <div className="flex min-h-[80vh] flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="w-full max-w-md space-y-8">
+            <div className="w-full max-w-md space-y-8 bg-card p-8 rounded-2xl shadow-lg border border-border">
                 <div className="flex flex-col items-center">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white mb-4">
-                        <Shield className="h-7 w-7" />
-                    </div>
+
                     <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-foreground">
                         Bine ai revenit
                     </h2>
