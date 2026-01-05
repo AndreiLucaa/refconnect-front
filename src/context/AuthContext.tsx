@@ -6,6 +6,7 @@ import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 
 // Define types for User and AuthContext
 export type UserRole = 'visitor' | 'referee' | 'admin';
 
+
 export interface User {
     id: string;
     name: string;
@@ -61,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             if (process.env.REACT_APP_API_URL) {
                 if (!user?.id) throw new Error('User ID is required to update profile');
-                
+
                 // Send update to backend using PUT /Users/{id}
                 const resp = await api.put(`/Users/${user.id}`, payload);
                 const updated = resp?.data?.user || resp?.data;
@@ -79,13 +80,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     setUser(newUser);
                     try {
                         localStorage.setItem('refconnect_user', JSON.stringify(newUser));
-                    } catch (e) {}
+                    } catch (e) { }
                     return newUser;
                 }
                 return resp?.data;
             } else {
-               
-                    const newUser: any = {
+
+                const newUser: any = {
                     ...user,
                     name: `${payload.firstName} ${payload.lastName}`.trim() || payload.userName || user?.name,
                     avatarUrl: normalizeAssetUrl(payload.profileImageUrl) || user?.avatarUrl,
@@ -93,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     isPrivate: payload.isProfilePublic,
                 };
                 setUser(newUser as User);
-                try { localStorage.setItem('refconnect_user', JSON.stringify(newUser)); } catch (e) {}
+                try { localStorage.setItem('refconnect_user', JSON.stringify(newUser)); } catch (e) { }
                 return newUser;
             }
         } finally {
@@ -118,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setExpiryTimeoutId(null);
         }
         if (msUntil <= 0) {
-          
+
             logoutLocal();
             return;
         }
@@ -141,20 +142,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     useEffect(() => {
-        
+
         console.debug('REACT_APP_API_URL =', process.env.REACT_APP_API_URL);
         //daca am token salvat in localstorage, il folosesc pentru a seta userul si tokenul in context
-        const  storedUser = localStorage.getItem('refconnect_user');
+        const storedUser = localStorage.getItem('refconnect_user');
         const storedToken = localStorage.getItem('refconnect_token');
         if (storedUser) {
             try {
                 const parsed = JSON.parse(storedUser);
                 // Normalize any stored profile image paths to absolute URLs
                 if (parsed?.profileImageUrl) {
-                    try { parsed.profileImageUrl = normalizeAssetUrl(parsed.profileImageUrl); } catch (e) {}
+                    try { parsed.profileImageUrl = normalizeAssetUrl(parsed.profileImageUrl); } catch (e) { }
                 }
                 if (parsed?.avatarUrl) {
-                    try { parsed.avatarUrl = normalizeAssetUrl(parsed.avatarUrl); } catch (e) {}
+                    try { parsed.avatarUrl = normalizeAssetUrl(parsed.avatarUrl); } catch (e) { }
                 }
                 setUser(parsed);
             } catch (e) {
@@ -164,20 +165,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (storedToken) {
             setToken(storedToken);
             api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-                    
+
             if (!storedUser) {
                 const payload = parseJwt(storedToken);
                 if (payload) {
-                 
+
                     const claimName = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name || payload.fullname || payload.preferred_username || '';
                     const claimId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.sub || payload.id || '';
-                   
+
                     let rolesRaw: any = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.roles || payload.role || payload['roles'];
                     let rolesArr: string[] = [];
                     if (rolesRaw) {
                         rolesArr = Array.isArray(rolesRaw) ? rolesRaw : [rolesRaw];
                     }
-                    const primaryRole = (rolesArr[0] as UserRole) || (payload.role as UserRole) || 'referee';
+                    const primaryRoleStr = (rolesArr[0] || payload.role || 'referee') as string;
+                    const primaryRole = (primaryRoleStr.toLowerCase()) as UserRole;
                     const derivedUser: User = {
                         id: claimId,
                         name: claimName,
@@ -189,15 +191,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     try {
                         localStorage.setItem('refconnect_user', JSON.stringify(derivedUser));
                     } catch (e) {
-                      
+
                     }
                 }
             }
-           
+
             try {
                 scheduleExpiryLogout(storedToken);
             } catch (e) {
-              
+
             }
         }
 
@@ -214,7 +216,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return config;
         });
 
-      
+
         const resInterceptor = api.interceptors.response.use(
             (response: AxiosResponse) => response,
             (error) => {
@@ -241,12 +243,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-   
+
     const login = async (email: string, password?: string) => {
         setIsLoading(true);
         try {
             if (process.env.REACT_APP_API_URL) {
-                
+
                 const resp = await api.post('/account/login', { email, password });
                 const { token: receivedToken, user: receivedUser } = resp.data;
                 if (!receivedToken) throw new Error('No token returned from API');
@@ -264,7 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (receivedUser) {
                     // Normalize any returned profile image URL
                     if (receivedUser.profileImageUrl) {
-                        try { receivedUser.profileImageUrl = normalizeAssetUrl(receivedUser.profileImageUrl); } catch (e) {}
+                        try { receivedUser.profileImageUrl = normalizeAssetUrl(receivedUser.profileImageUrl); } catch (e) { }
                     }
                     setUser(receivedUser);
                     try {
@@ -281,7 +283,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         let rolesRaw: any = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.roles || payload.role || payload['roles'];
                         let rolesArr: string[] = [];
                         if (rolesRaw) rolesArr = Array.isArray(rolesRaw) ? rolesRaw : [rolesRaw];
-                        const primaryRole = (rolesArr[0] as UserRole) || (payload.role as UserRole) || 'referee';
+                        const primaryRoleStr = (rolesArr[0] || payload.role || 'referee') as string;
+                        const primaryRole = (primaryRoleStr.toLowerCase()) as UserRole;
                         const derivedUser: User = {
                             id: claimId,
                             name: claimName,
@@ -366,7 +369,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     setUser(receivedUser);
                     try {
                         localStorage.setItem('refconnect_user', JSON.stringify(receivedUser));
-                    } catch (e) {}
+                    } catch (e) { }
                 } else {
                     const payload = parseJwt(receivedToken);
                     if (payload) {
@@ -375,7 +378,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         let rolesRaw: any = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.roles || payload.role || payload['roles'];
                         let rolesArr: string[] = [];
                         if (rolesRaw) rolesArr = Array.isArray(rolesRaw) ? rolesRaw : [rolesRaw];
-                        const primaryRole = (rolesArr[0] as UserRole) || (payload.role as UserRole) || 'referee';
+                        const primaryRoleStr = (rolesArr[0] || payload.role || 'referee') as string;
+                        const primaryRole = (primaryRoleStr.toLowerCase()) as UserRole;
                         const derivedUser: User = {
                             id: claimId,
                             name: claimName,
@@ -384,7 +388,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             roles: (rolesArr as UserRole[])
                         };
                         setUser(derivedUser);
-                        try { localStorage.setItem('refconnect_user', JSON.stringify(derivedUser)); } catch (e) {}
+                        try { localStorage.setItem('refconnect_user', JSON.stringify(derivedUser)); } catch (e) { }
                     }
                 }
             } else {

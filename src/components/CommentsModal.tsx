@@ -22,7 +22,7 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
     const [editingId, setEditingId] = React.useState<string | null>(null);
     const [editingText, setEditingText] = React.useState<string>('');
 
-    
+
     const updateCommentOnServer = async (commentId: string, content: string) => {
         try {
             const base = api.defaults.baseURL || '';
@@ -32,7 +32,7 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
             return resp?.data;
         } catch (err: any) {
             console.error('Failed to update comment (detailed)', err);
-            
+
             if (err.response) {
                 console.error('Response status', err.response.status, 'data', err.response.data);
                 window.alert(`Update failed: ${err.response.status} ${JSON.stringify(err.response.data)}`);
@@ -62,7 +62,7 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
             setLoading(true);
             try {
                 if (!initialComments) {
-                    
+
                     const resp = await api.get(`/posts/${postId}/comments`);
                     if (!mounted) return;
                     const data = resp?.data || [];
@@ -112,14 +112,14 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
 
     const handleAdd = async () => {
         if (!newComment.trim()) return;
-        
+
         // AI moderation check
         const moderationResult = await checkContent(newComment.trim());
         if (!moderationResult.safe) {
             alert(moderationResult.reason || "Comment has been flagged as inappropriate.");
             return;
         }
-        
+
         try {
             const added = await addComment(postId, newComment.trim());
             if (added) {
@@ -198,7 +198,7 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
                                                             alert(moderationResult.reason || "Comment has been flagged as inappropriate.");
                                                             return;
                                                         }
-                                                        
+
                                                         try {
                                                             const updated = await updateCommentOnServer(c.commentId, editingText);
                                                             const newContent = (updated && (updated.content || updated.body || updated.text)) ? (updated.content || updated.body || updated.text) : editingText;
@@ -218,7 +218,7 @@ export default function CommentsModal({ open, onClose, postId, initialComments }
                                         )}
                                     </div>
                                     <div className="mt-2 flex items-center gap-2">
-                                        {(user?.id === c.userId || user?.role === 'admin') && (
+                                        {(user?.id === c.userId || user?.role?.toLowerCase() === 'admin') && (
                                             <>
                                                 <button onClick={() => { setEditingId(c.commentId); setEditingText(c.content || ''); }} className="text-xs text-muted-foreground hover:text-foreground">Edit</button>
                                                 <button onClick={() => handleDelete(c.commentId)} className="text-xs text-red-500">Delete</button>

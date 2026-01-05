@@ -36,8 +36,8 @@ export default function AdminDashboard() {
 
         (async () => {
             try {
-                // Users: admin should use /users (these IDs match delete semantics)
-                const usersResp = await api.get('/users');
+                // Users: admin should use /Users (these IDs match delete semantics)
+                const usersResp = await api.get('/Users');
                 const usersData = Array.isArray(usersResp.data) ? usersResp.data : (usersResp.data?.items || []);
 
                 // Posts: reuse PostContext endpoint
@@ -77,13 +77,16 @@ export default function AdminDashboard() {
 
         const extractErrorMessage = (err: any): string => {
             const data = err?.response?.data;
+            // Handle array of errors (ASP.NET Identity often returns ["Description..."])
+            if (Array.isArray(data)) {
+                const joined = data.map(d => (typeof d === 'string' ? d : d.description || JSON.stringify(d))).join(', ');
+                return joined || 'Request failed';
+            }
             if (typeof data === 'string') {
-                
-                const lines = data.split('\n').map(l => l.trim()).filter(Boolean);
-                return lines[0] || 'Request failed';
+                return data;
             }
             if (data && typeof data === 'object') {
-                return data.message || data.error || JSON.stringify(data);
+                return data.message || data.error || data.title || JSON.stringify(data);
             }
             return err?.message || 'Request failed';
         };
@@ -91,7 +94,8 @@ export default function AdminDashboard() {
         try {
             if (type === 'user') {
                 const userId = String(id);
-                await api.delete(`/users/${userId}`);
+                // Use Correct PascalCase /Users endpoint
+                await api.delete(`/Users/${userId}`);
                 setUsers(prev => prev.filter(u => String(u?.id ?? u?.userId ?? u?.sub) !== userId));
                 return;
             }
@@ -109,6 +113,9 @@ export default function AdminDashboard() {
             }
         } catch (err: any) {
             console.error(`Failed to delete ${type}`, err);
+            if (err.response) {
+                console.error('SERVER ERROR DATA:', err.response.data);
+            }
             const status = err?.response?.status;
             const msg = extractErrorMessage(err);
             window.alert(`Failed to delete ${type}${status ? ` (${status})` : ''}: ${msg}`);
