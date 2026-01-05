@@ -330,27 +330,56 @@ export interface LoginDto {
 // ============ CHAT DTOs (UPDATED) ============
 
 // Matches RefConnect/DTOs/Chats/ChatDto.cs
+// IMPORTANT:
+// Backend DTO uses PascalCase (ChatId, ChatType, ...). Depending on your JSON serializer
+// configuration, the API may return either camelCase or PascalCase.
+//
+// We keep the existing camelCase ChatDto (used throughout the UI) and also export a
+// PascalCase variant for strict alignment/testing.
 export interface ChatDto {
   chatId: string;
-  chatType: string;              // "Group" or "Direct" - NOT boolean
+  chatType: string;              // e.g. "Group" | "Direct"
   createdAt: string;             // ISO date string
+  name: string;
   description: string;
   createdByUserId: string;
-  chatUsers: ChatUserDto[];      // NOT "users"
-  messages: MessageDto[];        // was missing
+  chatUsers: ChatUserDto[];
+  messages: MessageDto[] | null;
+}
+
+// Exact shape provided by backend (RefConnect.DTOs.Chats.ChatDto)
+export interface ChatDtoPascalCase {
+  ChatId: string;
+  ChatType: string;
+  CreatedAt: string;
+  Name: string;
+  Description: string;
+  CreatedByUserId: string;
+  ChatUsers: ChatUserDtoPascalCase[];
+  Messages: MessageDtoPascalCase[] | null;
 }
 
 // Matches RefConnect/DTOs/Chats/ChatDto.cs -> ChatUserDto
 
+// What /Chats currently returns (minimal membership rows)
 export interface ChatUserDto {
-  odUserId: string;
-  odUserName: string;
-  profileImageUrl: string | null;
+  chatUserId: string;
+  chatId: string;
+  userId: string;
+}
+
+// Exact shape provided by backend for chat users
+export interface ChatUserDtoPascalCase {
+  ChatUserId: string;
+  ChatId: string;
+  UserId: string;
 }
 
 
 export interface CreateGroupChatDto {
-  groupName: string;           
+  // Backend expects GroupName (see validation error), but we keep `name` for UI
+  // and map it in the API call.
+  name: string;
   description?: string;        
   initialUserIds: string[];    
 }
@@ -367,17 +396,25 @@ export interface UpdateChatDto {
 export interface MessageDto {
   messageId: string;
   chatId: string;
-  senderId: string;
-  senderUserName: string;
-  senderProfileImageUrl: string | null;
+  userId: string;
   content: string;
   sentAt: string;
+}
+
+// Exact shape provided by backend for messages
+export interface MessageDtoPascalCase {
+  MessageId: string;
+  ChatId: string;
+  UserId: string;
+  Content: string;
+  SentAt: string;
 }
 
 // Matches RefConnect/DTOs/Messages/CreateMessageDto.cs
 export interface CreateMessageDto {
   chatId: string;
   content: string;
+  userId: string;
 }
 
 // Matches RefConnect/DTOs/Messages/UpdateMessageDto.cs

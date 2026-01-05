@@ -219,12 +219,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             (response: AxiosResponse) => response,
             (error) => {
                 if (error?.response?.status === 401) {
-                    
-                    setUser(null);
-                    setToken(null);
-                    localStorage.removeItem('refconnect_token');
-                    localStorage.removeItem('refconnect_user');
-                    delete api.defaults.headers.common['Authorization'];
+                    // If we don't have a token, don't aggressively clear storage.
+                    // This avoids a race where an unauthenticated call (or missing token)
+                    // nukes a valid session before hydration finishes.
+                    const existing = localStorage.getItem('refconnect_token');
+                    if (existing) {
+                        setUser(null);
+                        setToken(null);
+                        localStorage.removeItem('refconnect_token');
+                        localStorage.removeItem('refconnect_user');
+                        delete api.defaults.headers.common['Authorization'];
+                    }
                 }
                 return Promise.reject(error);
             }

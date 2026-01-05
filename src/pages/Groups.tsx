@@ -1,49 +1,98 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Users, Search, UserPlus, Clock, Check, Loader2 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { ChatDto } from '../types';
 
 export default function Groups() {
-    const { user } = useAuth();
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const { 
-        allGroupChats, 
         chats, 
         myPendingRequests,
-        fetchAllGroupChats, 
-        searchGroupChats,
         fetchChats,
         fetchMyPendingRequests,
         requestJoinChat,
+        isMemberOfChat,
         isLoading 
     } = useChat();
     
     const [searchTerm, setSearchTerm] = useState('');
     const [requestingChatId, setRequestingChatId] = useState<string | null>(null);
+    const [membershipByChatId, setMembershipByChatId] = useState<Record<string, boolean>>({});
+    const [checkingMembership, setCheckingMembership] = useState(false);
+
+    const effectiveUserId = React.useMemo(() => {
+        if (user?.id) return user.id;
+        try {
+            const stored = localStorage.getItem('refconnect_user');
+            const parsed = stored ? (JSON.parse(stored) as any) : null;
+            return parsed?.id || parsed?.userId || parsed?.sub || null;
+        } catch {
+            return null;
+        }
+    }, [user?.id]);
 
     useEffect(() => {
-        fetchAllGroupChats();
+        if (authLoading) return;
+        if (!isAuthenticated) return;
+
+        // As requested: show groups returned by /Chats
         fetchChats();
         fetchMyPendingRequests();
-    }, []);
+    }, [authLoading, isAuthenticated]);
 
-    // Debounced search
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (searchTerm.trim()) {
-                searchGroupChats(searchTerm.trim());
-            } else {
-                fetchAllGroupChats();
-            }
-        }, 300);
+        if (authLoading) return;
+        if (!isAuthenticated) return;
+        if (!effectiveUserId) return;
+        if (!Array.isArray(chats) || chats.length === 0) return;
 
-        return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+        let mounted = true;
+        setCheckingMembership(true);
 
-    // Check if user is already a member of a chat
+        (async () => {
+            const next: Record<string, boolean> = {};
+            await Promise.all(
+                chats.map(async (c) => {
+                    try {
+                        next[c.chatId] = await isMemberOfChat(c.chatId, effectiveUserId);
+                    } catch {
+                        next[c.chatId] = false;
+                    }
+                })
+            );
+
+            if (!mounted) return;
+            setMembershipByChatId(next);
+            setCheckingMembership(false);
+        })();
+
+        return () => {
+            mounted = false;
+        };
+        // We intentionally avoid adding `isMemberOfChat` to keep this stable (it's from context).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authLoading, isAuthenticated, effectiveUserId, chats]);
+
+    // What we render in this page: chats from /Chats (client-side filtered by search term)
+    const displayedGroups = chats.filter(group => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return true;
+
+        const haystack = `${group.name || ''} ${group.description || ''}`.toLowerCase();
+        return haystack.includes(q);
+    });
+
+    const handleOpenGroup = (chatId: string) => {
+        navigate(`/chats/${chatId}`);
+    };
+
+    // Check if user is already a member of a chat (source of truth is backend endpoint)
     const isMember = (chatId: string) => {
-        return chats.some(chat => chat.chatId === chatId);
+        if (!effectiveUserId) return false;
+        return membershipByChatId[chatId] === true;
     };
 
     // Check if user has a pending request for a chat
@@ -95,7 +144,12 @@ export default function Groups() {
                 <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-            ) : allGroupChats.length === 0 ? (
+            ) : checkingMembership && isAuthenticated ? (
+                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Verificăm dacă ești membru…
+                </div>
+            ) : displayedGroups.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>{searchTerm ? 'Nu s-au găsit grupuri' : 'Nu există grupuri disponibile'}</p>
@@ -107,22 +161,29 @@ export default function Groups() {
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
-                    {allGroupChats.map(group => (
+                    {displayedGroups.map(group => (
                         <div 
                             key={group.chatId} 
-                            className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+                            className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors cursor-pointer"
+                            onClick={() => handleOpenGroup(group.chatId)}
                         >
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <Users className="h-4 w-4 text-primary" />
                                     <h3 className="font-semibold">
-                                        {group.description || 'Grup fără nume'}
+                                        {group.name?.trim() || 'Grup fără nume'}
                                     </h3>
                                 </div>
                                 <span className="text-xs text-muted-foreground">
                                     {group.chatUsers?.length || 0} membri
                                 </span>
                             </div>
+
+                            {group.description?.trim() && (
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                                    {group.description}
+                                </p>
+                            )}
                             
                             <p className="text-xs text-muted-foreground mb-3">
                                 Creat la: {new Date(group.createdAt).toLocaleDateString('ro-RO')}
@@ -136,7 +197,11 @@ export default function Groups() {
                                     </span>
                                 ) : isMember(group.chatId) ? (
                                     <Link 
-                                        to="/chats" 
+                                        to={`/chats/${group.chatId}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/chats/${group.chatId}`);
+                                        }}
                                         className="text-xs bg-green-500/10 text-green-500 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-500/20 transition-colors"
                                     >
                                         <Check className="h-3 w-3" />
@@ -163,6 +228,7 @@ export default function Groups() {
                                 ) : (
                                     <Link 
                                         to="/login" 
+                                        onClick={(e) => e.stopPropagation()}
                                         className="text-xs text-muted-foreground hover:text-primary"
                                     >
                                         Conectează-te pentru a te alătura

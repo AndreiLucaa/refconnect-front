@@ -52,6 +52,9 @@ function App() {
 
                   <Route path="/admin" element={<AdminDashboard />} />
 
+                    <Route path="/chats" element={<Chats />} />
+                    <Route path="/chats/:chatId" element={<Chats />} />
+
                   {/* Add more routes here later */}
                   <Route path="*" element={<div className="p-8 text-center text-muted-foreground">404 - Page Not Found</div>} />
                 </Route>

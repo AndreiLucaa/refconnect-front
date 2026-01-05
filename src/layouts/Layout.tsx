@@ -13,6 +13,10 @@ export const Layout = () => {
 
 
     const isActive = (path: string) => location.pathname === path;
+    const isAdmin = !!user && (
+        String(user.role || '').toLowerCase() === 'admin' ||
+        (Array.isArray(user.roles) && user.roles.some(r => String(r || '').toLowerCase() === 'admin'))
+    );
 
     return (
         <div className="min-h-screen bg-background text-foreground pb-16 md:pb-0">
@@ -34,7 +38,7 @@ export const Layout = () => {
                                 <Link to="/chats" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/chats') ? "text-primary" : "text-muted-foreground")}>Mesaje</Link>
                         </>
                     )}
-                    {user?.role === 'admin' && (
+                    {isAdmin && (
                         <Link to="/admin" className={cn("text-sm font-medium transition-colors hover:text-primary", isActive('/admin') ? "text-primary" : "text-muted-foreground")}>Admin</Link>
                     )}
                 </nav>

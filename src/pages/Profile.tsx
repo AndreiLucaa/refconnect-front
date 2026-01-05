@@ -15,6 +15,8 @@ export default function Profile() {
     const [isLoading, setIsLoading] = useState(true);
     const { isPostLiked } = usePost();
     const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+    const [followersCount, setFollowersCount] = useState<number>(0);
+    const [followingCount, setFollowingCount] = useState<number>(0);
 
 
     useEffect(() => {
@@ -125,6 +127,31 @@ export default function Profile() {
         }
     };
 
+    // Keep follow counts in sync with backend (profileData.followersCount can be missing/stale)
+    useEffect(() => {
+        const profileId = user?.id || (user as any)?.sub || (user as any)?.userId;
+        if (!profileId) return;
+
+        let mounted = true;
+        (async () => {
+            try {
+                const [followers, following] = await Promise.all([
+                    getFollowers(profileId),
+                    getFollowing(profileId)
+                ]);
+                if (!mounted) return;
+                setFollowersCount(Array.isArray(followers) ? followers.length : 0);
+                setFollowingCount(Array.isArray(following) ? following.length : 0);
+            } catch (e) {
+                // keep previous numbers
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [user?.id, getFollowers, getFollowing]);
+
     if (!user) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
@@ -178,11 +205,11 @@ export default function Profile() {
                         <span className="text-muted-foreground">Postări</span>
                     </div>
                     <button onClick={() => openList('followers')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
-                        <span className="font-bold">{profileData?.followersCount ?? '—'}</span>
+                        <span className="font-bold">{followersCount}</span>
                         <span className="text-muted-foreground">Urmăritori</span>
                     </button>
                     <button onClick={() => openList('following')} className="flex flex-col items-center hover:opacity-75 transition-opacity">
-                        <span className="font-bold">{profileData?.followingCount ?? '—'}</span>
+                        <span className="font-bold">{followingCount}</span>
                         <span className="text-muted-foreground">Urmăriri</span>
                     </button>
                 </div>
