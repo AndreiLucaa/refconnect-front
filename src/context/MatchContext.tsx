@@ -149,7 +149,7 @@ export const MatchProvider = ({ children }: { children: ReactNode }) => {
                 try {
                     // Try fetch user by ID. Assuming /Users/{id} or /profile/{id} works.
                     // Previous context showed profile fetching works.
-                    const userResp = await api.get(`/Users/${assign.userId}`);
+                    const userResp = await api.get(`/profiles/${assign.userId}`);
                     return { ...assign, user: userResp.data };
                 } catch (e) {
                     console.warn(`Failed to fetch user ${assign.userId} for assignment`, e);

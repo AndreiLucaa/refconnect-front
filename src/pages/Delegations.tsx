@@ -55,8 +55,8 @@ export default function Delegations() {
         setIsModalOpen(true);
         setIsLoadingUsers(true);
         try {
-            // Admin only: fetch all users to select from
-            const resp = await api.get('/Users');
+            // Fetch all profiles to select from (public endpoint)
+            const resp = await api.get('/profiles');
             const data = Array.isArray(resp.data) ? resp.data : (resp.data?.items || []);
             setAvailableUsers(data);
         } catch (e) {
@@ -209,7 +209,7 @@ export default function Delegations() {
                                             </div>
                                             <div>
                                                 <div className="font-medium text-sm">{u.fullName || u.userName}</div>
-                                                <div className="text-xs text-muted-foreground">{u.email}</div>
+                                                <div className="text-xs text-muted-foreground">@{u.userName}</div>
                                             </div>
                                         </button>
                                     ))}
