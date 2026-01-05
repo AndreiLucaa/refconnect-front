@@ -22,7 +22,7 @@ export const Layout = () => {
         <div className="min-h-screen bg-background text-foreground pb-16 md:pb-0">
             {/* Desktop Header */}
             <header className="hidden md:flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-sm z-50">
-                <Link to="/" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">
+                <Link to="/" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-black to-yellow-500">
                     RefConnect
                 </Link>
 
