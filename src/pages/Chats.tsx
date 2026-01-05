@@ -55,7 +55,7 @@ export default function Chats() {
     const [membersByUserId, setMembersByUserId] = useState<Record<string, { displayName: string; profileImageUrl: string | null } | null>>({});
     const [removingUserId, setRemovingUserId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const senderCacheRef = useRef<Record<string, { displayName: string; profileImageUrl: string | null } | null>>({});
+    const [senderProfiles, setSenderProfiles] = useState<Record<string, { displayName: string; profileImageUrl: string | null } | null>>({});
     const effectiveUserId = React.useMemo(() => {
         if (user?.id) return user.id;
         try {
@@ -68,10 +68,8 @@ export default function Chats() {
     }, [user?.id]);
 
     const fetchSenderProfile = async (id: string) => {
-        if (!id) return null;
-        if (Object.prototype.hasOwnProperty.call(senderCacheRef.current, id)) {
-            return senderCacheRef.current[id] || null;
-        }
+        if (!id) return;
+
         try {
             const r = await api.get(`/profiles/${id}`);
             const prof = r?.data;
@@ -83,16 +81,11 @@ export default function Chats() {
             const profileImageUrl = (typeof prof?.profileImageUrl === 'string' && prof.profileImageUrl.trim())
                 ? prof.profileImageUrl
                 : null;
-            if (!displayName) {
-                senderCacheRef.current[id] = null;
-                return null;
-            }
+
             const mapped = { displayName, profileImageUrl };
-            senderCacheRef.current[id] = mapped;
-            return mapped;
+            setSenderProfiles(prev => ({ ...prev, [id]: mapped }));
         } catch (e) {
-            senderCacheRef.current[id] = null;
-            return null;
+            setSenderProfiles(prev => ({ ...prev, [id]: null }));
         }
     };
 
@@ -178,11 +171,11 @@ export default function Chats() {
     }, [currentChat?.chatId, effectiveUserId, isAuthenticated]);
 
     useEffect(() => {
-        // Enrich sender cache for visible messages
+        // Enrich sender profiles for visible messages
         const ids = Array.from(new Set(messages.map(m => m.userId).filter(Boolean)));
-        const toFetch = ids.filter(id => !Object.prototype.hasOwnProperty.call(senderCacheRef.current, id));
+        const toFetch = ids.filter(id => !Object.prototype.hasOwnProperty.call(senderProfiles, id));
         if (toFetch.length === 0) return;
-        Promise.all(toFetch.map(id => fetchSenderProfile(id))).catch(() => { });
+        toFetch.forEach(id => fetchSenderProfile(id));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages]);
 
@@ -598,7 +591,7 @@ export default function Chats() {
                                         </div>
                                     ) : (
                                         messages.map((msg: MessageDto) => {
-                                            const sender = msg.userId ? senderCacheRef.current[msg.userId] : null;
+                                            const sender = msg.userId ? senderProfiles[msg.userId] : null;
                                             const rawSenderName = (sender?.displayName || '').trim();
                                             const isMine = !!effectiveUserId && msg.userId === effectiveUserId;
                                             const myDisplayName = (
@@ -623,7 +616,10 @@ export default function Chats() {
                                                 >
                                                     <div className={`flex gap-2 max-w-[70%] ${isMine ? 'flex-row-reverse' : ''}`}>
                                                         {/* Avatar */}
-                                                        <div className="h-8 w-8 rounded-full bg-secondary flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                                        <div
+                                                            className={`h-8 w-8 rounded-full bg-secondary flex-shrink-0 overflow-hidden flex items-center justify-center ${!isMine ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                                            onClick={() => !isMine && msg.userId && navigate(`/profile/${msg.userId}`)}
+                                                        >
                                                             {senderImage ? (
                                                                 <img
                                                                     src={normalizeAssetUrl(senderImage)}
@@ -642,7 +638,12 @@ export default function Chats() {
                                                                 : 'bg-secondary'
                                                                 }`}
                                                         >
-                                                            <div className="text-xs font-semibold mb-1">{senderName}</div>
+                                                            <div
+                                                                className={`text-xs font-semibold mb-1 ${!isMine ? 'cursor-pointer hover:underline' : ''}`}
+                                                                onClick={() => !isMine && msg.userId && navigate(`/profile/${msg.userId}`)}
+                                                            >
+                                                                {senderName}
+                                                            </div>
                                                             {editingMessageId === msg.messageId ? (
                                                                 <div className="space-y-2">
                                                                     <textarea

@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
 import { api } from './AuthContext';
-import { 
-    ChatDto, 
+import {
+    ChatDto,
     ChatDtoPascalCase,
-    MessageDto, 
+    MessageDto,
     MessageDtoPascalCase,
-    CreateMessageDto, 
+    CreateMessageDto,
     UpdateChatDto,
     UpdateMessageDto,
     ChatJoinRequestDto,
@@ -236,6 +236,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                     sentAt: m.sentAt,
                 } as MessageDto;
             });
+            // Sort by Date Ascending (oldest first)
+            normalized.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
             setMessages(normalized);
             // Fire-and-forget enrichment (awaited here so immediate render improves quickly).
             await enrichMessagesWithSenders(normalized);
@@ -267,7 +269,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
             const payload: CreateMessageDto = { chatId, content, userId };
             const response = await api.post('/Messages', payload);
-            
+
             if (response.data) {
                 const raw = response.data;
                 const normalized: MessageDto = (raw && typeof raw === 'object' && typeof raw.MessageId === 'string')
@@ -299,9 +301,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         try {
             const payload: UpdateMessageDto = { content };
             await api.put(`/Messages/${messageId}`, payload);
-            
-            setMessages(prev => prev.map(msg => 
-                msg.messageId === messageId 
+
+            setMessages(prev => prev.map(msg =>
+                msg.messageId === messageId
                     ? { ...msg, content }
                     : msg
             ));
@@ -337,7 +339,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             console.log('Creating group chat with payload:', JSON.stringify(payload, null, 2));
             const response = await api.post('/Chats/group', payload);
             console.log('Group chat created:', response.data);
-            
+
             if (response.data) {
                 setChats(prev => [...prev, response.data]);
                 return response.data;
@@ -357,13 +359,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         try {
             const payload: UpdateChatDto = { name, description };
             await api.put(`/Chats/${chatId}`, payload);
-            
-            setChats(prev => prev.map(chat => 
-                chat.chatId === chatId 
+
+            setChats(prev => prev.map(chat =>
+                chat.chatId === chatId
                     ? { ...chat, ...(name && { name }), ...(description && { description }) }
                     : chat
             ));
-            
+
             if (currentChat?.chatId === chatId) {
                 setCurrentChat(prev => prev ? { ...prev, ...(name && { name }), ...(description && { description }) } : null);
             }
@@ -379,7 +381,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         try {
             await api.delete(`/Chats/${chatId}`);
             setChats(prev => prev.filter(chat => chat.chatId !== chatId));
-            
+
             if (currentChat?.chatId === chatId) {
                 setCurrentChat(null);
                 setMessages([]);
