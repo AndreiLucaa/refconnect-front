@@ -54,7 +54,7 @@ export default function Chats() {
     const [showMembers, setShowMembers] = useState(false);
     const [membersByUserId, setMembersByUserId] = useState<Record<string, { displayName: string; profileImageUrl: string | null } | null>>({});
     const [removingUserId, setRemovingUserId] = useState<string | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [senderProfiles, setSenderProfiles] = useState<Record<string, { displayName: string; profileImageUrl: string | null } | null>>({});
     const effectiveUserId = React.useMemo(() => {
         if (user?.id) return user.id;
@@ -181,7 +181,9 @@ export default function Chats() {
 
     useEffect(() => {
         // Scroll to bottom when messages change
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
     }, [messages]);
 
     const handleSendMessage = async () => {
@@ -584,7 +586,10 @@ export default function Chats() {
                             }
 
                             return (
-                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                <div
+                                    ref={messagesContainerRef}
+                                    className="flex-1 overflow-y-auto p-4 space-y-4"
+                                >
                                     {messages.length === 0 ? (
                                         <div className="text-center text-muted-foreground py-8">
                                             No messages yet. Start the conversation!
@@ -703,7 +708,7 @@ export default function Chats() {
                                             );
                                         })
                                     )}
-                                    <div ref={messagesEndRef} />
+
                                 </div>
                             );
                         })()}
