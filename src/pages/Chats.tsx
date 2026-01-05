@@ -35,7 +35,7 @@ export default function Chats() {
         fetchJoinRequestsForOwner,
         fetchMyPendingRequests,
         acceptJoinRequest,
-            requestJoinChat,
+        requestJoinChat,
         declineJoinRequest,
         cancelJoinRequest,
         clearError
@@ -182,7 +182,7 @@ export default function Chats() {
         const ids = Array.from(new Set(messages.map(m => m.userId).filter(Boolean)));
         const toFetch = ids.filter(id => !Object.prototype.hasOwnProperty.call(senderCacheRef.current, id));
         if (toFetch.length === 0) return;
-        Promise.all(toFetch.map(id => fetchSenderProfile(id))).catch(() => {});
+        Promise.all(toFetch.map(id => fetchSenderProfile(id))).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages]);
 
@@ -256,7 +256,7 @@ export default function Chats() {
             alert('Te rog introdu un nume pentru grup');
             return;
         }
-        
+
         try {
             const chat = await createGroupChat(newChatName.trim(), newChatDescription.trim(), []);
             if (chat) {
@@ -335,7 +335,7 @@ export default function Chats() {
         const ids = Array.from(new Set((currentChat.chatUsers || []).map(u => u.userId).filter(Boolean)));
         const toFetch = ids.filter(id => !Object.prototype.hasOwnProperty.call(membersByUserId, id));
         if (toFetch.length === 0) return;
-        Promise.all(toFetch.map(id => fetchMemberProfile(id))).catch(() => {});
+        Promise.all(toFetch.map(id => fetchMemberProfile(id))).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showMembers, currentChat?.chatId, currentChat?.chatUsers]);
 
@@ -376,25 +376,42 @@ export default function Chats() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    {isLoading && chats.length === 0 ? (
-                        <div className="flex justify-center items-center h-32">
-                            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-                        </div>
-                    ) : chats.length === 0 ? (
-                        <div className="p-4 text-center text-muted-foreground">
-                            No chats yet. Create one to get started!
-                        </div>
-                    ) : (
-                        chats.map((chat: ChatDto) => (
+                    {/* Filter chats to only show those where the user is a member */}
+                    {(() => {
+                        const filteredChats = chats.filter(chat => {
+                            if (!effectiveUserId) return false;
+                            // Check rigid membership in chatUsers
+                            const isMember = (chat.chatUsers || []).some(u => u.userId === effectiveUserId);
+                            // Also checking creator just in case, though usually creator is added as member
+                            const isCreator = chat.createdByUserId === effectiveUserId;
+                            return isMember || isCreator;
+                        });
+
+                        if (isLoading && chats.length === 0) {
+                            return (
+                                <div className="flex justify-center items-center h-32">
+                                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                                </div>
+                            );
+                        }
+
+                        if (filteredChats.length === 0) {
+                            return (
+                                <div className="p-4 text-center text-muted-foreground">
+                                    No chats found. You are not a member of any group.
+                                </div>
+                            );
+                        }
+
+                        return filteredChats.map((chat: ChatDto) => (
                             <button
                                 key={chat.chatId}
                                 onClick={() => {
                                     setCurrentChat(chat);
                                     navigate(`/chats/${chat.chatId}`);
                                 }}
-                                className={`w-full p-4 text-left hover:bg-secondary transition-colors border-b border-border ${
-                                    currentChat?.chatId === chat.chatId ? 'bg-secondary' : ''
-                                }`}
+                                className={`w-full p-4 text-left hover:bg-secondary transition-colors border-b border-border ${currentChat?.chatId === chat.chatId ? 'bg-secondary' : ''
+                                    }`}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -410,8 +427,8 @@ export default function Chats() {
                                     </div>
                                 </div>
                             </button>
-                        ))
-                    )}
+                        ));
+                    })()}
                 </div>
             </div>
 
@@ -575,118 +592,117 @@ export default function Chats() {
 
                             return (
                                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {messages.length === 0 ? (
-                                <div className="text-center text-muted-foreground py-8">
-                                    No messages yet. Start the conversation!
-                                </div>
-                            ) : (
-                                messages.map((msg: MessageDto) => {
-                                    const sender = msg.userId ? senderCacheRef.current[msg.userId] : null;
-                                    const rawSenderName = (sender?.displayName || '').trim();
-                                    const isMine = !!effectiveUserId && msg.userId === effectiveUserId;
-                                    const myDisplayName = (
-                                        `${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`.trim() ||
-                                        (user as any)?.fullName ||
-                                        (user as any)?.userName ||
-                                        'Me'
-                                    );
-                                    // If profile data is missing/blank, still show *something* helpful in the UI.
-                                    // We prefer a readable name, otherwise fall back to a short id-based label.
-                                    const senderName = (isMine ? myDisplayName : rawSenderName).length > 0
-                                        ? (isMine ? myDisplayName : rawSenderName)
-                                        : msg.userId
-                                            ? `User ${msg.userId.slice(0, 8)}`
-                                            : 'User';
-                                    const senderImage = sender?.profileImageUrl || null;
+                                    {messages.length === 0 ? (
+                                        <div className="text-center text-muted-foreground py-8">
+                                            No messages yet. Start the conversation!
+                                        </div>
+                                    ) : (
+                                        messages.map((msg: MessageDto) => {
+                                            const sender = msg.userId ? senderCacheRef.current[msg.userId] : null;
+                                            const rawSenderName = (sender?.displayName || '').trim();
+                                            const isMine = !!effectiveUserId && msg.userId === effectiveUserId;
+                                            const myDisplayName = (
+                                                `${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`.trim() ||
+                                                (user as any)?.fullName ||
+                                                (user as any)?.userName ||
+                                                'Me'
+                                            );
+                                            // If profile data is missing/blank, still show *something* helpful in the UI.
+                                            // We prefer a readable name, otherwise fall back to a short id-based label.
+                                            const senderName = (isMine ? myDisplayName : rawSenderName).length > 0
+                                                ? (isMine ? myDisplayName : rawSenderName)
+                                                : msg.userId
+                                                    ? `User ${msg.userId.slice(0, 8)}`
+                                                    : 'User';
+                                            const senderImage = sender?.profileImageUrl || null;
 
-                                    return (
-                                        <div
-                                            key={msg.messageId}
-                                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                                        >
-                                            <div className={`flex gap-2 max-w-[70%] ${isMine ? 'flex-row-reverse' : ''}`}>
-                                                {/* Avatar */}
-                                                <div className="h-8 w-8 rounded-full bg-secondary flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                                    {senderImage ? (
-                                                        <img
-                                                            src={normalizeAssetUrl(senderImage)}
-                                                            alt={senderName || 'Avatar'}
-                                                            className="h-full w-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs">{senderName?.charAt(0) || '?'}</span>
-                                                    )}
-                                                </div>
-
-                                                {/* Message bubble */}
+                                            return (
                                                 <div
-                                                    className={`rounded-lg p-3 ${
-                                                        isMine
-                                                            ? 'bg-primary text-primary-foreground'
-                                                            : 'bg-secondary'
-                                                    }`}
+                                                    key={msg.messageId}
+                                                    className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                                                 >
-                                                    <div className="text-xs font-semibold mb-1">{senderName}</div>
-                                                    {editingMessageId === msg.messageId ? (
-                                                        <div className="space-y-2">
-                                                            <textarea
-                                                                value={editingText}
-                                                                onChange={(e) => setEditingText(e.target.value)}
-                                                                className="w-full rounded border border-input px-2 py-1 text-foreground bg-background text-sm"
-                                                                rows={2}
-                                                            />
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => handleUpdateMessage(msg.messageId)}
-                                                                    className="p-1 hover:bg-green-500/20 text-green-500 rounded"
-                                                                >
-                                                                    <Check className="h-4 w-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setEditingMessageId(null);
-                                                                        setEditingText('');
-                                                                    }}
-                                                                    className="p-1 hover:bg-red-500/20 text-red-500 rounded"
-                                                                >
-                                                                    <X className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
+                                                    <div className={`flex gap-2 max-w-[70%] ${isMine ? 'flex-row-reverse' : ''}`}>
+                                                        {/* Avatar */}
+                                                        <div className="h-8 w-8 rounded-full bg-secondary flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                                            {senderImage ? (
+                                                                <img
+                                                                    src={normalizeAssetUrl(senderImage)}
+                                                                    alt={senderName || 'Avatar'}
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="text-xs">{senderName?.charAt(0) || '?'}</span>
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="whitespace-pre-wrap break-words text-sm">{msg.content}</div>
-                                                            <div className="flex items-center justify-between mt-1 text-xs opacity-70">
-                                                                <span>{new Date(msg.sentAt).toLocaleTimeString()}</span>
-                                                                {isMine && (
-                                                                    <div className="flex gap-1 ml-2">
+
+                                                        {/* Message bubble */}
+                                                        <div
+                                                            className={`rounded-lg p-3 ${isMine
+                                                                ? 'bg-primary text-primary-foreground'
+                                                                : 'bg-secondary'
+                                                                }`}
+                                                        >
+                                                            <div className="text-xs font-semibold mb-1">{senderName}</div>
+                                                            {editingMessageId === msg.messageId ? (
+                                                                <div className="space-y-2">
+                                                                    <textarea
+                                                                        value={editingText}
+                                                                        onChange={(e) => setEditingText(e.target.value)}
+                                                                        className="w-full rounded border border-input px-2 py-1 text-foreground bg-background text-sm"
+                                                                        rows={2}
+                                                                    />
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            onClick={() => handleUpdateMessage(msg.messageId)}
+                                                                            className="p-1 hover:bg-green-500/20 text-green-500 rounded"
+                                                                        >
+                                                                            <Check className="h-4 w-4" />
+                                                                        </button>
                                                                         <button
                                                                             onClick={() => {
-                                                                                setEditingMessageId(msg.messageId);
-                                                                                setEditingText(msg.content);
+                                                                                setEditingMessageId(null);
+                                                                                setEditingText('');
                                                                             }}
-                                                                            className="p-1 hover:bg-white/20 rounded"
+                                                                            className="p-1 hover:bg-red-500/20 text-red-500 rounded"
                                                                         >
-                                                                            <Edit2 className="h-3 w-3" />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDeleteMessage(msg.messageId)}
-                                                                            className="p-1 hover:bg-white/20 rounded"
-                                                                        >
-                                                                            <Trash2 className="h-3 w-3" />
+                                                                            <X className="h-4 w-4" />
                                                                         </button>
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        </>
-                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="whitespace-pre-wrap break-words text-sm">{msg.content}</div>
+                                                                    <div className="flex items-center justify-between mt-1 text-xs opacity-70">
+                                                                        <span>{new Date(msg.sentAt).toLocaleTimeString()}</span>
+                                                                        {isMine && (
+                                                                            <div className="flex gap-1 ml-2">
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setEditingMessageId(msg.messageId);
+                                                                                        setEditingText(msg.content);
+                                                                                    }}
+                                                                                    className="p-1 hover:bg-white/20 rounded"
+                                                                                >
+                                                                                    <Edit2 className="h-3 w-3" />
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => handleDeleteMessage(msg.messageId)}
+                                                                                    className="p-1 hover:bg-white/20 rounded"
+                                                                                >
+                                                                                    <Trash2 className="h-3 w-3" />
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                            <div ref={messagesEndRef} />
+                                            );
+                                        })
+                                    )}
+                                    <div ref={messagesEndRef} />
                                 </div>
                             );
                         })()}
