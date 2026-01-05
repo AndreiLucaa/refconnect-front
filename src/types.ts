@@ -147,9 +147,9 @@ export interface LikeDto {
 }
 
 export interface FollowDto {
-    followerId: string;
-    followingId: string;
-    followedAt: Date;
+  followerId: string;
+  followingId: string;
+  followedAt: Date;
 }
 
 export interface FollowRequestDto {
@@ -206,11 +206,18 @@ export interface UpdateCommentDto {
 // Match DTOs
 export interface MatchDto {
   matchId: string;
-  homeTeam: string;
-  awayTeam: string;
+  // homeTeam and awayTeam are not in backend 'Matches' table directly, 
+  // but parsed from the 'Score' field or retrieved elsewhere if logic changes.
+  // For now we make them optional or removed if we rely on score parsing.
+  // We keep them optional to avoid breaking existing UI types until we refactor fully.
+  homeTeam?: string;
+  awayTeam?: string;
+
   matchDate: Date;
   location: string;
   championshipId: string;
+  score: string; // Contains "Home 1 - 1 Away" or similar
+  status: string;
 }
 
 export interface CreateMatchDto {
@@ -219,6 +226,8 @@ export interface CreateMatchDto {
   matchDate: Date;
   location: string;
   championshipId: string;
+  score?: string;
+  status?: string;
 }
 
 export interface UpdateMatchDto {
@@ -227,6 +236,8 @@ export interface UpdateMatchDto {
   matchDate: Date;
   location: string;
   championshipId: string;
+  score?: string;
+  status?: string;
 }
 
 // Match Assignment DTOs
@@ -236,12 +247,13 @@ export interface MatchAssignmentDto {
   userId: string;
   role: string;
   assignedAt: Date;
+  user?: UserDto;
 }
 
 export interface CreateMatchAssignmentDto {
   matchId: string;
   userId: string;
-  role: string;
+  RoleInMatch: string;
 }
 
 export interface UpdateMatchAssignmentDto {
@@ -280,6 +292,7 @@ export interface UserDto {
   email?: string;
   firstName: string;
   lastName: string;
+  fullName?: string;
   description: string;
   profileImageUrl: string;
   isProfilePublic: boolean;
@@ -380,8 +393,8 @@ export interface CreateGroupChatDto {
   // Backend expects GroupName (see validation error), but we keep `name` for UI
   // and map it in the API call.
   name: string;
-  description?: string;        
-  initialUserIds: string[];    
+  description?: string;
+  initialUserIds: string[];
 }
 
 
